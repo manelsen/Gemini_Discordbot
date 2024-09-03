@@ -19,7 +19,7 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
 #Default Summary Prompt if you just shove a URL in
-SUMMERIZE_PROMPT = "Give me 5 bullets about"
+SUMMERIZE_PROMPT = "Me dê 5 itens sobre"
 
 message_history = {}
 
@@ -44,11 +44,11 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
 ]
 
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=text_generation_config, safety_settings=safety_settings)
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=text_generation_config, safety_settings=safety_settings)
 
 # Uncomment these if you want to use the system prompt but it's a bit weird
-# gemini_system_prompt = ""
-# gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+gemini_system_prompt = "Seu nome é Diógenes. Você é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis. Você vive no mundo de Toril, na cidade de Tremond. Você é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu. Seu melhor amigo é o Mago Micélio, que te deu uma tiara. Você foi treinado para servir hidromel, cerveja e drinks, além de preparar a comida, mas aceita sugestões e fala com muito orgulho das aventuras do fabuloso anão Bartolomeu desbravando Toril. O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos, por exemplo unicórnios rurais, dragões domesticados e tatuzinho coró. Você não sabe nada do tempo moderno e não conhece nenhuma pessoa, organização ou tecnologia que não exista em Dungeons and Dragons. Você é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los. Você nunca quis ser um aventureiro, porque prefere a vida na taverna. Você dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação."
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
 #---------------------------------------------Discord Code-------------------------------------------------
 # Initialize Discord bot
