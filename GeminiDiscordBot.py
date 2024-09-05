@@ -152,12 +152,12 @@ async def process_message(message):
                         return
             # Not an Image, check for text responses
             else:
-                logger.info(f"New Message Message FROM: {message.author.name} : {cleaned_text}")
+                logger.info(f"New Message FROM: {message.author.name} : {cleaned_text}")
                 # Check for Reset or Clean keyword
                 if "RESET" in cleaned_text or "CLEAN" in cleaned_text:
                     # End back message
-                    if message.author.id in message_history:
-                        del message_history[message.author.id]
+                    if message.author.name in message_history:
+                        del message_history[message.author.name]
                     await message.channel.send("🧼 History Reset for user: " + str(message.author.name))
                     return
                 # Check for URLs
@@ -175,10 +175,10 @@ async def process_message(message):
                     await split_and_send_messages(message, response_text, 1700)
                     return
                 # Add user's question to history
-                update_message_history(message.author.id, cleaned_text)
-                response_text = await generate_response_with_text(get_formatted_message_history(message.author.id))
+                update_message_history(message.author.name, cleaned_text)
+                response_text = await generate_response_with_text(get_formatted_message_history(message.author.name))
                 # Add AI response to history
-                update_message_history(message.author.id, response_text)
+                update_message_history(message.author.name, response_text)
                 # Split the Message so discord does not get upset
                 await split_and_send_messages(message, response_text, 1700)
 
