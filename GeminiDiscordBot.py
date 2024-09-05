@@ -1,3 +1,5 @@
+#!/usr/bin/python3.10
+
 import discord
 import google.generativeai as genai
 from discord.ext import commands
@@ -7,6 +9,10 @@ import re
 import os
 import fitz  # PyMuPDF
 import asyncio
+import certifi
+import logger
+
+os.environ["SSL_CERT_FILE"] = certifi.where()
 
 #Web Scraping
 import requests
@@ -19,12 +25,26 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
 #Default Summary Prompt if you just shove a URL in
-SUMMERIZE_PROMPT = "Give me 5 bullets about"
+SUMMERIZE_PROMPT = "Me dê 5 itens sobre"
 
 message_history = {}
 
 
-#show_debugs = False
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+file_handler = logging.FileHandler('app.log')
+file_handler.setLevel(logging.DEBUG)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 #---------------------------------------------AI Configuration-------------------------------------------------
 
@@ -34,7 +54,7 @@ text_generation_config = {
     "temperature": 0.9,
     "top_p": 1,
     "top_k": 1,
-    "max_output_tokens": 512,
+    "max_output_tokens": 2000,
 }
 
 safety_settings = [
@@ -44,11 +64,27 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
 ]
 
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=text_generation_config, safety_settings=safety_settings)
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
 
 # Uncomment these if you want to use the system prompt but it's a bit weird
-# gemini_system_prompt = ""
-# gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+gemini_system_prompt = f"""
+Seu nome é Diógenes.
+Você é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
+Você vive no mundo de Toril, na cidade de Tremond.
+Você é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu.
+Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
+Você foi ensinado a servir bebidas e preparar a comida, mas aceita sugestões.
+Você fala com muito orgulho das aventuras do fabuloso anão Bartolomeu desbravando Toril.
+Se alguém te pedir, você vai criar histórias detalhadas sobre as aventuras de Bartolomeu o Anão.
+Você fala com respeito quase reverencial do Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
+O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos, por exemplo unicórnios rurais, dragões domesticados e tatuzinho coró.
+Você não sabe nada do tempo moderno e não conhece nenhuma pessoa, organização ou tecnologia que não exista em Dungeons and Dragons.
+Você é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
+Você nunca quis ser um aventureiro, porque prefere a vida na taverna.
+Você dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação.
+"""
+
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
 #---------------------------------------------Discord Code-------------------------------------------------
 # Initialize Discord bot
@@ -58,9 +94,9 @@ bot = commands.Bot(command_prefix="!", intents=defaultIntents)
 
 @bot.event
 async def on_ready():
-    print("----------------------------------------")
-    print(f'Gemini Bot Logged in as {bot.user}')
-    print("----------------------------------------")
+    logger.info("----------------------------------------")
+    logger.info(f'Gemini Bot Logged in as {bot.user}')
+    logger.info("----------------------------------------")
     
 @bot.event
 async def on_message(message):
@@ -70,7 +106,7 @@ async def on_message(message):
 #----This is now a coroutine for longer messages so it won't block the on_message thread
 async def process_message(message):
     # Ignore messages sent by the bot or if mention everyone is used
-    if message.author == bot.user or message.mention_everyone:
+    if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
     # Check if the bot is mentioned or the message is a DM
@@ -82,14 +118,15 @@ async def process_message(message):
             if message.attachments:
                 # Currently no chat history for images
                 for attachment in message.attachments:
-                    print(f"New Image Message FROM: {message.author.name} : {cleaned_text}")
+                    logger.info(f"New Image Message FROM: {message.author.name} : {cleaned_text}")
                     # these are the only image extensions it currently accepts
                     if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
-                        print("Processing Image")
+                        logger.info("Processing Image")
                         await message.add_reaction('🎨')
-                        async with aiohttp.ClientSession() as session:
+                        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                             async with session.get(attachment.url) as resp:
                                 if resp.status != 200:
+                                    logger.error('Unable to download the image.')
                                     await message.channel.send('Unable to download the image.')
                                     return
                                 image_data = await resp.read()
@@ -97,12 +134,12 @@ async def process_message(message):
                                 await split_and_send_messages(message, response_text, 1700)
                                 return
                     else:
-                        print(f"New Text Message FROM: {message.author.name} : {cleaned_text}")
+                        logger.info(f"New Text Message FROM: {message.author.name} : {cleaned_text}")
                         await ProcessAttachments(message, cleaned_text)
                         return
             # Not an Image, check for text responses
             else:
-                print(f"New Message Message FROM: {message.author.name} : {cleaned_text}")
+                logger.info(f"New Message Message FROM: {message.author.name} : {cleaned_text}")
                 # Check for Reset or Clean keyword
                 if "RESET" in cleaned_text or "CLEAN" in cleaned_text:
                     # End back message
@@ -113,7 +150,7 @@ async def process_message(message):
                 # Check for URLs
                 if extract_url(cleaned_text) is not None:
                     await message.add_reaction('🔗')
-                    print(f"Got URL: {extract_url(cleaned_text)}")
+                    logger.info(f"Got URL: {extract_url(cleaned_text)}")
                     response_text = await ProcessURL(cleaned_text)
                     await split_and_send_messages(message, response_text, 1700)
                     return
@@ -133,7 +170,6 @@ async def process_message(message):
                 await split_and_send_messages(message, response_text, 1700)
 
 
-       
 #---------------------------------------------AI Generation History-------------------------------------------------           
 
 async def generate_response_with_text(message_text):
@@ -141,20 +177,25 @@ async def generate_response_with_text(message_text):
         prompt_parts = [message_text]
         response = gemini_model.generate_content(prompt_parts)
         if response._error:
+            logger.error(str(response._error))
             return "❌" + str(response._error)
+        logger.info(response.text)
         return response.text
     except Exception as e:
+        logger.error(str(e))
         return "❌ Exception: " + str(e)
 
 async def generate_response_with_image_and_text(image_data, text):
     try:
         image_parts = [{"mime_type": "image/jpeg", "data": image_data}]
-        prompt_parts = [image_parts[0], f"\n{text if text else 'What is this a picture of?'}"]
+        prompt_parts = [image_parts[0], f"\n{text if text else 'Isso é uma imagem do quê?'}"]
         response = gemini_model.generate_content(prompt_parts)
         if response._error:
             return "❌" + str(response._error)
+        logger.info(response.text)
         return response.text
     except Exception as e:
+        logger.error(str(e))
         return "❌ Exception: " + str(e)
             
 #---------------------------------------------Message History-------------------------------------------------
@@ -207,12 +248,13 @@ async def ProcessURL(message_str):
     if pre_prompt == "":
         pre_prompt = SUMMERIZE_PROMPT   
     if is_youtube_url(extract_url(message_str)):
-        print("Processing Youtube Transcript")   
+        logger.info("Processing Youtube Transcript")   
         return await generate_response_with_text(pre_prompt + " " + get_FromVideoID(get_video_id(extract_url(message_str))))     
     if extract_url(message_str):       
-        print("Processing Standards Link")       
+        logger.info("Processing Standards Link")       
         return await generate_response_with_text(pre_prompt + " " + extract_text_from_url(extract_url(message_str)))
     else:
+        logger.warning("No URL Found")
         return "No URL Found"
     
 def extract_url(string):
@@ -340,17 +382,18 @@ async def ProcessAttachments(message,prompt):
         prompt = SUMMERIZE_PROMPT  
     for attachment in message.attachments:
         await message.add_reaction('📄')
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(attachment.url) as resp:
                 if resp.status != 200:
                     await message.channel.send('Unable to download the attachment.')
                     return
                 if attachment.filename.lower().endswith('.pdf'):
-                    print("Processing PDF")
+                    logger.info("Processing PDF")
                     try:
                         pdf_data = await resp.read()
                         response_text = await process_pdf(pdf_data,prompt)
                     except Exception as e:
+                        logger.error("Cannot proccess attachment")
                         await message.channel.send('❌ CANNOT PROCESS ATTACHMENT')
                         return
                 else:
@@ -358,6 +401,7 @@ async def ProcessAttachments(message,prompt):
                         text_data = await resp.text()
                         response_text = await generate_response_with_text(prompt+ ": " + text_data)
                     except Exception as e:
+                        logger.error("Cannot proccess attachment")
                         await message.channel.send('CANNOT PROCESS ATTACHMENT')
                         return
 
