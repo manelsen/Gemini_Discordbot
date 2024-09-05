@@ -14,6 +14,8 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+import json
+import os
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -89,11 +91,26 @@ defaultIntents = discord.Intents.default()
 defaultIntents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=defaultIntents)
 
+def save_message_history():
+    with open('message_history.json', 'w') as f:
+        json.dump(message_history, f)
+
+def load_message_history():
+    global message_history
+    if os.path.exists('message_history.json'):
+        with open('message_history.json', 'r') as f:
+            message_history = json.load(f)
+    else:
+        message_history = {}
+
 @bot.event
 async def on_ready():
     logger.info("----------------------------------------")
     logger.info(f'Gemini Bot Logged in as {bot.user}')
     logger.info("----------------------------------------")
+    
+    # Carrega o histórico de mensagens ao iniciar o bot
+    load_message_history()
     
 @bot.event
 async def on_message(message):
@@ -197,16 +214,15 @@ async def generate_response_with_image_and_text(image_data, text):
             
 #---------------------------------------------Message History-------------------------------------------------
 def update_message_history(user_id, text):
-    # Check if user_id already exists in the dictionary
     if user_id in message_history:
-        # Append the new message to the user's message list
         message_history[user_id].append(text)
-        # If there are more than 12 messages, remove the oldest one
         if len(message_history[user_id]) > MAX_HISTORY:
             message_history[user_id].pop(0)
     else:
-        # If the user_id does not exist, create a new entry with the message
         message_history[user_id] = [text]
+    
+    # Salva o histórico de mensagens após cada atualização
+    save_message_history()
         
 def get_formatted_message_history(user_id):
     """
@@ -416,4 +432,9 @@ async def process_pdf(pdf_data,prompt):
     return await generate_response_with_text(prompt+ ": " + text)
 
 #---------------------------------------------Run Bot-------------------------------------------------
-bot.run(DISCORD_BOT_TOKEN)
+if __name__ == "__main__":
+    try:
+        bot.run(DISCORD_BOT_TOKEN)
+    finally:
+        # Salva o histórico de mensagens ao encerrar o bot
+        save_message_history()
