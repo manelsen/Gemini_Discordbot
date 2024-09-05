@@ -1,6 +1,4 @@
-#!/usr/bin/python3.10
-
-#!/usr/bin/python3.10
+#!/usr/bin/python3.11
 
 import discord
 import google.generativeai as genai
@@ -12,11 +10,7 @@ import os
 import fitz  # PyMuPDF
 import asyncio
 import certifi
-import logger
-
-os.environ["SSL_CERT_FILE"] = certifi.where()
-
-#Web Scraping
+import logging
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -26,12 +20,12 @@ GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
+os.environ["SSL_CERT_FILE"] = certifi.where()
+
 #Default Summary Prompt if you just shove a URL in
-SUMMERIZE_PROMPT = "Me dê 5 itens sobre"
-SUMMERIZE_PROMPT = "Me dê 5 itens sobre"
+SUMMARIZE_PROMPT = "Me dê 5 itens sobre"
 
 message_history = {}
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -68,10 +62,8 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
 ]
 
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
+# gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
 
-# Uncomment these if you want to use the system prompt but it's a bit weird
 gemini_system_prompt = f"""
 Seu nome é Diógenes.
 Você é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
@@ -112,7 +104,6 @@ async def on_message(message):
 async def process_message(message):
     # Ignore messages sent by the bot or if mention everyone is used
     if message.author == bot.user or message.mention_everyone or not message.author.bot:
-    if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
     # Check if the bot is mentioned or the message is a DM
@@ -129,7 +120,6 @@ async def process_message(message):
                     if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
                         logger.info("Processing Image")
                         await message.add_reaction('🎨')
-                        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                             async with session.get(attachment.url) as resp:
                                 if resp.status != 200:
@@ -253,7 +243,7 @@ def clean_discord_message(input_string):
 async def ProcessURL(message_str):
     pre_prompt = remove_url(message_str)
     if pre_prompt == "":
-        pre_prompt = SUMMERIZE_PROMPT   
+        pre_prompt = SUMMARIZE_PROMPT   
     if is_youtube_url(extract_url(message_str)):
         logger.info("Processing Youtube Transcript")   
         return await generate_response_with_text(pre_prompt + " " + get_FromVideoID(get_video_id(extract_url(message_str))))     
@@ -386,10 +376,9 @@ def get_FromVideoID(video_id):
 
 async def ProcessAttachments(message,prompt):
     if prompt == "":
-        prompt = SUMMERIZE_PROMPT  
+        prompt = SUMMARIZE_PROMPT  
     for attachment in message.attachments:
         await message.add_reaction('📄')
-        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(attachment.url) as resp:
                 if resp.status != 200:
