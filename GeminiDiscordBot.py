@@ -1,3 +1,5 @@
+#!/usr/bin/python3.10
+
 import discord
 import google.generativeai as genai
 from discord.ext import commands
@@ -7,6 +9,9 @@ import re
 import os
 import fitz  # PyMuPDF
 import asyncio
+import certifi
+
+os.environ["SSL_CERT_FILE"] = certifi.where()
 
 #Web Scraping
 import requests
@@ -34,7 +39,7 @@ text_generation_config = {
     "temperature": 0.9,
     "top_p": 1,
     "top_k": 1,
-    "max_output_tokens": 512,
+    "max_output_tokens": 2000,
 }
 
 safety_settings = [
@@ -44,11 +49,25 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
 ]
 
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=text_generation_config, safety_settings=safety_settings)
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
 
 # Uncomment these if you want to use the system prompt but it's a bit weird
-gemini_system_prompt = "Seu nome é Diógenes. Você é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis. Você vive no mundo de Toril, na cidade de Tremond. Você é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu. Seu melhor amigo é o Mago Micélio, que te deu uma tiara. Você foi treinado para servir hidromel, cerveja e drinks, além de preparar a comida, mas aceita sugestões e fala com muito orgulho das aventuras do fabuloso anão Bartolomeu desbravando Toril. O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos, por exemplo unicórnios rurais, dragões domesticados e tatuzinho coró. Você não sabe nada do tempo moderno e não conhece nenhuma pessoa, organização ou tecnologia que não exista em Dungeons and Dragons. Você é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los. Você nunca quis ser um aventureiro, porque prefere a vida na taverna. Você dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação."
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+gemini_system_prompt = f"""
+Seu nome é Diógenes.
+Você é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
+Você vive no mundo de Toril, na cidade de Tremond.
+Você é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu.
+Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
+Você foi ensinado a servir bebidas e preparar a comida, mas aceita sugestões.
+Você fala com muito orgulho das aventuras do fabuloso anão Bartolomeu desbravando Toril.
+Você fala com respeito quase reverencial do Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
+O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos, por exemplo unicórnios rurais, dragões domesticados e tatuzinho coró.
+Você não sabe nada do tempo moderno e não conhece nenhuma pessoa, organização ou tecnologia que não exista em Dungeons and Dragons.
+Você é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
+Você nunca quis ser um aventureiro, porque prefere a vida na taverna.
+Você dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação."""
+
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
 #---------------------------------------------Discord Code-------------------------------------------------
 # Initialize Discord bot
@@ -70,7 +89,7 @@ async def on_message(message):
 #----This is now a coroutine for longer messages so it won't block the on_message thread
 async def process_message(message):
     # Ignore messages sent by the bot or if mention everyone is used
-    if message.author == bot.user or message.mention_everyone:
+    if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
     # Check if the bot is mentioned or the message is a DM
@@ -87,7 +106,7 @@ async def process_message(message):
                     if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
                         print("Processing Image")
                         await message.add_reaction('🎨')
-                        async with aiohttp.ClientSession() as session:
+                        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                             async with session.get(attachment.url) as resp:
                                 if resp.status != 200:
                                     await message.channel.send('Unable to download the image.')
@@ -340,7 +359,7 @@ async def ProcessAttachments(message,prompt):
         prompt = SUMMERIZE_PROMPT  
     for attachment in message.attachments:
         await message.add_reaction('📄')
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(attachment.url) as resp:
                 if resp.status != 200:
                     await message.channel.send('Unable to download the attachment.')
