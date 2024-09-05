@@ -1,5 +1,7 @@
 #!/usr/bin/python3.10
 
+#!/usr/bin/python3.10
+
 import discord
 import google.generativeai as genai
 from discord.ext import commands
@@ -25,6 +27,7 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
 #Default Summary Prompt if you just shove a URL in
+SUMMERIZE_PROMPT = "Me dê 5 itens sobre"
 SUMMERIZE_PROMPT = "Me dê 5 itens sobre"
 
 message_history = {}
@@ -55,6 +58,7 @@ text_generation_config = {
     "top_p": 1,
     "top_k": 1,
     "max_output_tokens": 2000,
+    "max_output_tokens": 2000,
 }
 
 safety_settings = [
@@ -64,6 +68,7 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
 ]
 
+gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
 gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings)
 
 # Uncomment these if you want to use the system prompt but it's a bit weird
@@ -107,6 +112,7 @@ async def on_message(message):
 async def process_message(message):
     # Ignore messages sent by the bot or if mention everyone is used
     if message.author == bot.user or message.mention_everyone or not message.author.bot:
+    if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
     # Check if the bot is mentioned or the message is a DM
@@ -123,6 +129,7 @@ async def process_message(message):
                     if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
                         logger.info("Processing Image")
                         await message.add_reaction('🎨')
+                        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
                             async with session.get(attachment.url) as resp:
                                 if resp.status != 200:
@@ -382,6 +389,7 @@ async def ProcessAttachments(message,prompt):
         prompt = SUMMERIZE_PROMPT  
     for attachment in message.attachments:
         await message.add_reaction('📄')
+        async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
         async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
             async with session.get(attachment.url) as resp:
                 if resp.status != 200:
