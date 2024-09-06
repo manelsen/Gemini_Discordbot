@@ -170,12 +170,12 @@ async def process_message(message):
                 await message.add_reaction('💬')
                 if MAX_HISTORY == 0:
                     response_text = await generate_response_with_text(cleaned_text)
-                    # Add AI response to history
-                    await split_and_send_messages(message, response_text, 1700)
-                    return
+                else:
+                    # Gerar resposta usando o novo método
+                    response_text = await generate_response_with_context(message.author.name, cleaned_text)
                 # Add user's question to history
                 update_message_history(message.author.name, cleaned_text)
-                response_text = await generate_response_with_text(get_formatted_message_history(message.author.name))
+                update_message_history(message.author.name, response_text)
                 # Add AI response to history
                 update_message_history(message.author.name, response_text)
                 # Split the Message so discord does not get upset
@@ -183,6 +183,35 @@ async def process_message(message):
 
 
 #---------------------------------------------AI Generation History-------------------------------------------------           
+
+async def generate_response_with_context(user_id, current_question):
+    # Passo 1: Resumir o contexto histórico
+    full_history = get_formatted_message_history(user_id)
+    context_prompt = f"""
+    Resumo do histórico de conversa com o usuário:
+    {full_history}
+    
+    Com base neste histórico, forneça um breve resumo dos pontos mais relevantes para a conversa atual.
+    Resumo:
+    """
+    context_summary = await generate_response_with_text(context_prompt)
+    
+    # Passo 2: Gerar resposta com base no resumo e na pergunta atual
+    response_prompt = f"""
+    Contexto resumido da conversa:
+    {context_summary}
+    
+    Pergunta atual do usuário: {current_question}
+    
+    Por favor, responda à pergunta do usuário levando em consideração o contexto resumido, mas sem repetir informações anteriores desnecessariamente.
+    Resposta:
+    """
+    response = await generate_response_with_text(response_prompt)
+    
+    return response
+
+
+
 
 async def generate_response_with_text(message_text):
     try:
