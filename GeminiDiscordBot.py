@@ -137,14 +137,20 @@ async def on_message(message):
 
 #----This is now a coroutine for longer messages so it won't block the on_message thread
 async def process_message(message):
-    if message.author == bot.user or message.mention_everyone or not message.author.bot:
+#    if message.author == bot.user or message.mention_everyone or not message.author.bot:
+    if message.author == bot.user or message.mention_everyone:        
         return
 
     if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
-        texto_limpo = clean_discord_message(message.content)
         id_usuario = str(message.author.id)
+        nome_discord = message.author.name
+        logger.info(f"Processando mensagem do usuário {id_usuario} (Nome Discord: {nome_discord})")
         
+        texto_limpo = clean_discord_message(message.content)
         hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Atualiza as informações básicas do usuário, incluindo o nome do Discord
+        update_user_info(id_usuario, nome_discord, hora_atual)
         
         async with message.channel.typing():
             if message.attachments or extract_url(texto_limpo):                # Currently no chat history for images
@@ -189,7 +195,9 @@ async def process_message(message):
                 await message.add_reaction('💬')
             info_atualizada = {}
             if "meu nome é" in texto_limpo.lower():
-                info_atualizada['nome'] = texto_limpo.lower().split("meu nome é")[1].strip().split()[0]
+                nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0]
+                info_atualizada['nome'] = nome
+                logger.info(f"Usuário {id_usuario} definiu seu nome como '{nome}'")
             if "minha raça é" in texto_limpo.lower():
                 info_atualizada['raca'] = texto_limpo.lower().split("minha raça é")[1].strip().split()[0]
             if "minha classe é" in texto_limpo.lower():
@@ -198,24 +206,27 @@ async def process_message(message):
                 info_atualizada['ingrediente_favorito'] = texto_limpo.lower().split("meu ingrediente favorito é")[1].strip()
             
             if info_atualizada:
-                update_user_info(id_usuario, hora_atual, **info_atualizada)
+                update_user_info(id_usuario, nome_discord, hora_atual, **info_atualizada)
 
             texto_resposta = await generate_response_with_context(id_usuario, texto_limpo)
 
             update_message_history(id_usuario, texto_limpo, eh_usuario=True)
             update_message_history(id_usuario, texto_resposta, eh_usuario=False)
 
+            logger.info(f"Enviando resposta para o usuário {id_usuario}")
             await split_and_send_messages(message, texto_resposta, 1700)
 
 
 #---------------------------------------------AI Generation History-------------------------------------------------           
 
 async def generate_response_with_context(id_usuario, pergunta_atual):
+    logger.debug(f"Gerando resposta para o usuário {id_usuario}")
     historico_completo = get_formatted_message_history(id_usuario)
     dados_usuario = get_user_info(id_usuario)
     
     context = f"""
-    Informações prioritárias do usuário atual:
+    [INÍCIO DO CONTEXTO PARA O USUÁRIO {id_usuario}]
+    Informações prioritárias do usuário atual (ID: {id_usuario}):
     - Nome: {dados_usuario['nome']}
     - Raça: {dados_usuario['raca']}
     - Classe: {dados_usuario['classe']}
@@ -230,13 +241,16 @@ async def generate_response_with_context(id_usuario, pergunta_atual):
 
     Pergunta atual do usuário: {pergunta_atual}
 
-    Por favor, responda à pergunta do usuário levando em consideração apenas as informações deste usuário específico.
-    Dê especial atenção ao nome, raça, classe e ingrediente favorito do usuário em suas respostas quando relevante.
-    Você pode ser criativo e sugerir pratos ou receitas baseadas no ingrediente favorito do usuário.
-    Forneça uma resposta direta e relevante, demonstrando memória das informações prioritárias e das conversas anteriores quando apropriado.
-    Lembre-se: estas informações são específicas para este usuário, não as confunda com informações de outros usuários.
+    INSTRUÇÕES IMPORTANTES:
+    1. Responda APENAS com base nas informações fornecidas para este usuário específico (ID: {id_usuario}).
+    2. Use o nome '{dados_usuario['nome']}' para se referir ao usuário, a menos que ele peça explicitamente para mudar.
+    3. Se for perguntado sobre informações que não estão no contexto acima, diga que não tem essa informação.
+    4. Mantenha-se estritamente dentro do contexto fornecido para este usuário.
+
+    [FIM DO CONTEXTO PARA O USUÁRIO {id_usuario}]
     """
     
+    logger.debug(f"Contexto gerado para o usuário {id_usuario}")
     response = await generate_response_with_text(context)
     return response
 
@@ -286,16 +300,33 @@ def get_formatted_message_history(id_usuario):
     else:
         return "Nenhum histórico de mensagens encontrado para este usuário."
     
-def update_user_info(id_usuario, timestamp, **kwargs):
+def update_user_info(id_usuario, nome_discord, timestamp, **kwargs):
+    logger.debug(f"Atualizando informações para o usuário {id_usuario}")
     if id_usuario not in info_usuario:
         info_usuario[id_usuario] = {
-            "nome": "Desconhecido",
+            "nome": nome_discord,  # Inicializa com o nome do Discord
             "primeira_interacao": timestamp,
             "ultima_interacao": timestamp,
             "raca": "Desconhecida",
             "classe": "Desconhecida",
             "ingrediente_favorito": "Desconhecido"
         }
+        logger.info(f"Novo usuário criado: {id_usuario} com nome {nome_discord}")
+    else:
+        # Atualiza o nome se não foi definido pelo usuário
+        if info_usuario[id_usuario]["nome"] == "Desconhecido":
+            info_usuario[id_usuario]["nome"] = nome_discord
+            logger.info(f"Nome atualizado para usuário {id_usuario}: {nome_discord}")
+    
+    info_usuario[id_usuario]["ultima_interacao"] = timestamp
+    
+    for chave, valor in kwargs.items():
+        if chave in ["nome", "raca", "classe", "ingrediente_favorito"]:
+            old_value = info_usuario[id_usuario].get(chave, "Desconhecido")
+            info_usuario[id_usuario][chave] = valor
+            logger.info(f"Usuário {id_usuario}: {chave} atualizado de '{old_value}' para '{valor}'")
+    
+    save_data()
     
     info_usuario[id_usuario]["ultima_interacao"] = timestamp
     
@@ -306,7 +337,8 @@ def update_user_info(id_usuario, timestamp, **kwargs):
     save_data()
     
 def get_user_info(id_usuario):
-    return info_usuario.get(id_usuario, {
+    logger.debug(f"Recuperando informações do usuário {id_usuario}")
+    user_data = info_usuario.get(id_usuario, {
         "nome": "Desconhecido",
         "raca": "Desconhecida",
         "classe": "Desconhecida",
@@ -314,6 +346,8 @@ def get_user_info(id_usuario):
         "primeira_interacao": "Desconhecida",
         "ultima_interacao": "Desconhecida"
     })
+    logger.debug(f"Dados recuperados para {id_usuario}: {user_data}")
+    return user_data
     
 #---------------------------------------------Sending Messages-------------------------------------------------
 async def split_and_send_messages(message_system, text, max_length):
