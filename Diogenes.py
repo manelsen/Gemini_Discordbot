@@ -88,7 +88,7 @@ async def generate_global_summary():
         raw_summary += f"Primeira interação: {dados['primeira_interacao']}, Última: {dados['ultima_interacao']}\n"
         
         if nome in historico_mensagens:
-            ultimas_mensagens = historico_mensagens[nome][-30:]  # Últimas 30 mensagens
+            ultimas_mensagens = historico_mensagens[nome][-15:]  # Últimas 15 mensagens
             raw_summary += "Últimas interações:\n"
             for msg in ultimas_mensagens:
                 raw_summary += f"- {msg}\n"  # Mensagem completa
@@ -104,7 +104,7 @@ async def generate_global_summary():
     O resumo deve:
     1. Ter exatamente 3000 caracteres, separados por usuário e em bullets cronológicos.
     2. Ter topícos para todos os usuários, sem exceção de nenhum.
-    2. Incluir informações relevantes de todas as 30 últimas mensagens de cada usuário, especialmente recados e senhas.
+    2. Incluir informações relevantes das 15 últimas mensagens de cada usuário, especialmente recados e senhas.
     3. Apresentar uma visão detalhada dos usuários ativos, suas características e padrões de interação.
     4. Destacar temas recorrentes ou informações importantes das conversas.
     5. Colocar um resumo factual das 10 últimas mensagens
