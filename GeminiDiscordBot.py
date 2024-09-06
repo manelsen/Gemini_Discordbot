@@ -144,9 +144,7 @@ async def process_message(message):
         texto_limpo = clean_discord_message(message.content)
         id_usuario = str(message.author.id)
         
-        # Atualiza as informações básicas do usuário
         hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        update_user_info(id_usuario, hora_atual)
         
         async with message.channel.typing():
             if message.attachments or extract_url(texto_limpo):                # Currently no chat history for images
@@ -214,28 +212,29 @@ async def process_message(message):
 
 async def generate_response_with_context(id_usuario, pergunta_atual):
     historico_completo = get_formatted_message_history(id_usuario)
-    dados_usuario = info_usuario.get(id_usuario, {})
+    dados_usuario = get_user_info(id_usuario)
     
     context = f"""
-    Informações prioritárias do usuário:
-    - Nome: {dados_usuario.get('nome', 'Desconhecido')}
-    - Raça: {dados_usuario.get('raca', 'Desconhecida')}
-    - Classe: {dados_usuario.get('classe', 'Desconhecida')}
-    - Ingrediente favorito: {dados_usuario.get('ingrediente_favorito', 'Desconhecido')}
+    Informações prioritárias do usuário atual:
+    - Nome: {dados_usuario['nome']}
+    - Raça: {dados_usuario['raca']}
+    - Classe: {dados_usuario['classe']}
+    - Ingrediente favorito: {dados_usuario['ingrediente_favorito']}
 
-    Outras informações do usuário:
-    - Primeira interação: {dados_usuario.get('primeira_interacao', 'Desconhecida')}
-    - Última interação: {dados_usuario.get('ultima_interacao', 'Desconhecida')}
+    Outras informações do usuário atual:
+    - Primeira interação: {dados_usuario['primeira_interacao']}
+    - Última interação: {dados_usuario['ultima_interacao']}
 
-    Histórico da conversa:
+    Histórico da conversa com este usuário:
     {historico_completo}
 
     Pergunta atual do usuário: {pergunta_atual}
 
-    Por favor, responda à pergunta do usuário levando em consideração as informações prioritárias e o histórico da conversa. 
+    Por favor, responda à pergunta do usuário levando em consideração apenas as informações deste usuário específico.
     Dê especial atenção ao nome, raça, classe e ingrediente favorito do usuário em suas respostas quando relevante.
     Você pode ser criativo e sugerir pratos ou receitas baseadas no ingrediente favorito do usuário.
     Forneça uma resposta direta e relevante, demonstrando memória das informações prioritárias e das conversas anteriores quando apropriado.
+    Lembre-se: estas informações são específicas para este usuário, não as confunda com informações de outros usuários.
     """
     
     response = await generate_response_with_text(context)
@@ -297,14 +296,24 @@ def update_user_info(id_usuario, timestamp, **kwargs):
             "classe": "Desconhecida",
             "ingrediente_favorito": "Desconhecido"
         }
-    else:
-        info_usuario[id_usuario]["ultima_interacao"] = timestamp
+    
+    info_usuario[id_usuario]["ultima_interacao"] = timestamp
     
     for chave in ["nome", "raca", "classe", "ingrediente_favorito"]:
         if chave in kwargs:
             info_usuario[id_usuario][chave] = kwargs[chave]
     
     save_data()
+    
+def get_user_info(id_usuario):
+    return info_usuario.get(id_usuario, {
+        "nome": "Desconhecido",
+        "raca": "Desconhecida",
+        "classe": "Desconhecida",
+        "ingrediente_favorito": "Desconhecido",
+        "primeira_interacao": "Desconhecida",
+        "ultima_interacao": "Desconhecida"
+    })
     
 #---------------------------------------------Sending Messages-------------------------------------------------
 async def split_and_send_messages(message_system, text, max_length):
