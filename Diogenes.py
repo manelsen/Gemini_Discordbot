@@ -230,13 +230,12 @@ async def process_message(message):
             
             if info_atualizada:
                 update_user_info(nome_usuario, hora_atual, **info_atualizada)
-                # Regenera o sumário global após atualizações significativas
-                generate_global_summary()  # Isso agora exibirá o sumário atualizado
 
             texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
 
             update_message_history(nome_usuario, texto_limpo, eh_usuario=True)
             update_message_history(nome_usuario, texto_resposta, eh_usuario=False)
+            generate_global_summary()  # Isso agora exibirá o sumário atualizado
 
             logger.info(f"Enviando resposta para o usuário {nome_usuario}")
             await split_and_send_messages(message, texto_resposta, 1700)
