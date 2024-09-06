@@ -155,10 +155,9 @@ async def process_message(message):
                 logger.info(f"New Message FROM: {message.author.name} : {cleaned_text}")
                 # Check for Reset or Clean keyword
                 if "RESET" in cleaned_text or "CLEAN" in cleaned_text:
-                    # End back message
                     if message.author.name in message_history:
                         del message_history[message.author.name]
-                    await message.channel.send("🧼 History Reset for user: " + str(message.author.name))
+                    await message.reply("🧼 History Reset for user: " + str(message.author.name))
                     return
                 # Check for URLs
                 if extract_url(cleaned_text) is not None:
@@ -234,16 +233,19 @@ def get_formatted_message_history(user_id):
         return "No messages found for this user."
     
 #---------------------------------------------Sending Messages-------------------------------------------------
-async def split_and_send_messages(message_system, text, max_length):
-    # Split the string into parts
-    messages = []
-    for i in range(0, len(text), max_length):
-        sub_message = text[i:i+max_length]
-        messages.append(sub_message)
+    async def split_and_send_messages(message_system, text, max_length):
+        messages = []
+        for i in range(0, len(text), max_length):
+            sub_message = text[i:i+max_length]
+            messages.append(sub_message)
 
-    # Send each part as a separate message
-    for string in messages:
-        await message_system.channel.send(string)    
+        # Enviar a primeira mensagem como uma resposta
+        if messages:
+            await message_system.reply(messages[0])
+
+        # Enviar as mensagens restantes, se houver, como mensagens normais
+        for string in messages[1:]:
+            await message_system.channel.send(string)
 
 #cleans the discord message of any <@!123456789> tags
 import re
