@@ -73,39 +73,50 @@ info_usuario = {}
 historico_mensagens = {}
 sumario_global = ""
 
-def generate_global_summary():
+async def generate_global_summary():
     global sumario_global
     logger.info("Gerando sumário global das conversas")
     
-    summary = "Sumário de todas as conversas e preferências dos usuários:\n\n"
+    raw_summary = "Resumo de todas as conversas e preferências dos usuários:\n\n"
     
     for nome, dados in info_usuario.items():
-        summary += f"Usuário: {nome}\n"
-        summary += f"Raça: {dados['raca']}\n"
-        summary += f"Classe: {dados['classe']}\n"
-        summary += f"Ingrediente favorito: {dados['ingrediente_favorito']}\n"
-        summary += f"Primeira interação: {dados['primeira_interacao']}\n"
-        summary += f"Última interação: {dados['ultima_interacao']}\n"
+        raw_summary += f"Usuário: {nome}\n"
+        raw_summary += f"Raça: {dados['raca']}, Classe: {dados['classe']}, Favorito: {dados['ingrediente_favorito']}\n"
+        raw_summary += f"Primeira interação: {dados['primeira_interacao']}, Última: {dados['ultima_interacao']}\n"
         
         if nome in historico_mensagens:
-            ultimas_mensagens = historico_mensagens[nome][-5:]  # Últimas 5 mensagens
-            summary += "Últimas interações:\n"
+            ultimas_mensagens = historico_mensagens[nome][-30:]  # Últimas 30 mensagens
+            raw_summary += "Últimas interações:\n"
             for msg in ultimas_mensagens:
-                summary += f"- {msg}\n"
+                raw_summary += f"- {msg}\n"  # Mensagem completa
         
-        summary += "\n"
+        raw_summary += "\n"
     
-    sumario_global = summary
+    # Usando generate_response_with_text para criar um resumo
+    prompt = f"""
+    Crie um resumo objetivo do seguinte sumário de conversas:
+
+    {raw_summary}
+
+    O resumo deve:
+    1. Ter exatamente 1000 caracteres.
+    2. Incluir informações relevantes de todas as 30 últimas mensagens de cada usuário.
+    3. Apresentar uma visão geral dos usuários ativos, suas características e padrões de interação.
+    4. Destacar temas recorrentes ou informações importantes das conversas.
+    """
+
+    concise_summary = await generate_response_with_text(prompt)
+    sumario_global = concise_summary
+    
     logger.info("Sumário global gerado com sucesso")
     
-    # Exibe o sumário global completo no console
     print("\n" + "="*50)
     print("SUMÁRIO GLOBAL ATUALIZADO:")
     print("="*50)
-    print(summary)
+    print(sumario_global)
     print("="*50 + "\n")
     
-    return summary
+    return sumario_global
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
     logger.debug(f"Atualizando informações para o usuário {nome_usuario}")
@@ -235,7 +246,7 @@ async def process_message(message):
 
             update_message_history(nome_usuario, texto_limpo, eh_usuario=True)
             update_message_history(nome_usuario, texto_resposta, eh_usuario=False)
-            generate_global_summary()  # Isso agora exibirá o sumário atualizado
+            await generate_global_summary()  # Isso agora exibirá o sumário atualizado
 
             logger.info(f"Enviando resposta para o usuário {nome_usuario}")
             await split_and_send_messages(message, texto_resposta, 1700)
@@ -323,7 +334,7 @@ async def on_ready():
     logger.info(f'Gemini Bot Logged in as {bot.user}')
     logger.info("----------------------------------------")
     load_data()
-    generate_global_summary()  # Isso exibirá o sumário inicial
+    await generate_global_summary()  # Isso exibirá o sumário inicial
 
 @bot.event
 async def on_message(message):
