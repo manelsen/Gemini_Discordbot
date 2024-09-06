@@ -109,12 +109,6 @@ async def generate_global_summary():
     
     logger.info("Sumário global gerado com sucesso")
     
-    print("\n" + "="*50)
-    print("SUMÁRIO GLOBAL ATUALIZADO:")
-    print("="*50)
-    print(sumario_global)
-    print("="*50 + "\n")
-    
     return sumario_global
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
