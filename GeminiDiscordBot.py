@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import json
 import os
+import datetime
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -27,7 +28,8 @@ os.environ["SSL_CERT_FILE"] = certifi.where()
 #Default Summary Prompt if you just shove a URL in
 SUMMARIZE_PROMPT = "Me dê 5 itens sobre"
 
-message_history = {}
+historico_mensagens = {}
+info_usuario = {}
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -118,18 +120,20 @@ async def on_message(message):
 
 #----This is now a coroutine for longer messages so it won't block the on_message thread
 async def process_message(message):
-    # Ignore messages sent by the bot or if mention everyone is used
     if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
-    # Check if the bot is mentioned or the message is a DM
     if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
-        # Start Typing to seem like something happened
-        cleaned_text = clean_discord_message(message.content)
+        texto_limpo = clean_discord_message(message.content)
+        id_usuario = str(message.author.id)
+        nome_usuario = message.author.name
+        
+        # Atualiza as informações básicas do usuário
+        hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        update_user_info(id_usuario, nome_usuario, hora_atual)
+        
         async with message.channel.typing():
-            # Check for image attachments
-            if message.attachments or extract_url(cleaned_text):
-                # Currently no chat history for images
+            if message.attachments or extract_url(texto_limpo):                # Currently no chat history for images
                 for attachment in message.attachments:
                     logger.info(f"New Image Message FROM: {message.author.name} : {cleaned_text}")
                     # these are the only image extensions it currently accepts
@@ -166,39 +170,57 @@ async def process_message(message):
                     response_text = await ProcessURL(cleaned_text)
                     await split_and_send_messages(message, response_text, 1700)
                     return
+                
                 # Check if history is disabled, just send response
                 await message.add_reaction('💬')
-                if MAX_HISTORY == 0:
-                    response_text = await generate_response_with_text(cleaned_text)
-                else:
-                    # Gerar resposta usando o novo método
-                    response_text = await generate_response_with_context(message.author.name, cleaned_text)
-                # Adicionar apenas a pergunta do usuário ao histórico
-                update_message_history(message.author.name, f"User: {cleaned_text}")
-                
-                # Adicionar a resposta do bot ao histórico
-                update_message_history(message.author.name, f"Bot: {response_text}")
+            info_atualizada = {}
+            if "minha raça é" in texto_limpo.lower():
+                info_atualizada['raca'] = texto_limpo.lower().split("minha raça é")[1].strip().split()[0]
+            if "minha classe é" in texto_limpo.lower():
+                info_atualizada['classe'] = texto_limpo.lower().split("minha classe é")[1].strip().split()[0]
+            if "meu ingrediente favorito é" in texto_limpo.lower():
+                info_atualizada['ingrediente_favorito'] = texto_limpo.lower().split("meu ingrediente favorito é")[1].strip()
+            
+            if info_atualizada:
+                update_user_info(id_usuario, nome_usuario, hora_atual, **info_atualizada)
 
-                # Enviar a resposta para o canal
-                await split_and_send_messages(message, response_text, 1700)
+            texto_resposta = await generate_response_with_context(id_usuario, texto_limpo)
+
+            update_message_history(id_usuario, texto_limpo, eh_usuario=True)
+            update_message_history(id_usuario, texto_resposta, eh_usuario=False)
+
+            await split_and_send_messages(message, texto_resposta, 1700)
 
 
 #---------------------------------------------AI Generation History-------------------------------------------------           
 
-async def generate_response_with_context(user_id, current_question):
-    full_history = get_formatted_message_history(user_id)
+async def generate_response_with_context(id_usuario, pergunta_atual):
+    historico_completo = get_formatted_message_history(id_usuario)
+    dados_usuario = info_usuario.get(id_usuario, {})
     
-    prompt = f"""
+    context = f"""
+    Informações prioritárias do usuário:
+    - Nome: {dados_usuario.get('nome_usuario', 'Desconhecido')}
+    - Raça: {dados_usuario.get('raca', 'Desconhecida')}
+    - Classe: {dados_usuario.get('classe', 'Desconhecida')}
+    - Ingrediente favorito: {dados_usuario.get('ingrediente_favorito', 'Desconhecido')}
+
+    Outras informações do usuário:
+    - Primeira interação: {dados_usuario.get('primeira_interacao', 'Desconhecida')}
+    - Última interação: {dados_usuario.get('ultima_interacao', 'Desconhecida')}
+
     Histórico da conversa:
-    {full_history}
+    {historico_completo}
 
-    Pergunta atual do usuário: {current_question}
+    Pergunta atual do usuário: {pergunta_atual}
 
-    Por favor, responda à pergunta do usuário levando em consideração o histórico da conversa, 
-    mas sem repetir informações anteriores desnecessariamente. Forneça uma resposta direta e relevante.
+    Por favor, responda à pergunta do usuário levando em consideração as informações prioritárias e o histórico da conversa. 
+    Dê especial atenção ao nome (que é o nome de exibição do Discord), raça, classe e ingrediente favorito do usuário em suas respostas quando relevante.
+    Você pode ser criativo e sugerir pratos ou receitas baseadas no ingrediente favorito do usuário.
+    Forneça uma resposta direta e relevante, demonstrando memória das informações prioritárias e das conversas anteriores quando apropriado.
     """
     
-    response = await generate_response_with_text(prompt)
+    response = await generate_response_with_text(context)
     return response
 
 async def generate_response_with_text(message_text):
@@ -228,25 +250,60 @@ async def generate_response_with_image_and_text(image_data, text):
         return "❌ Exception: " + str(e)
             
 #---------------------------------------------Message History-------------------------------------------------
-def update_message_history(user_id, text):
-    if user_id not in message_history:
-        message_history[user_id] = []
+def update_message_history(id_usuario, texto, eh_usuario=True):
+    if id_usuario not in historico_mensagens:
+        historico_mensagens[id_usuario] = []
     
-    message_history[user_id].append(text)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    tipo_mensagem = "Usuário" if eh_usuario else "Bot"
+    historico_mensagens[id_usuario].append(f"[{timestamp}] {tipo_mensagem}: {texto}")
     
-    # Limita o histórico a um número máximo de mensagens
-    max_history_length = MAX_HISTORY
-    if len(message_history[user_id]) > max_history_length:
-        message_history[user_id] = message_history[user_id][-max_history_length:]
+    if len(historico_mensagens[id_usuario]) > MAX_HISTORY:
+        historico_mensagens[id_usuario] = historico_mensagens[id_usuario][-MAX_HISTORY:]
     
-    save_message_history()
+    save_data()
         
-def get_formatted_message_history(user_id):
-    if user_id in message_history:
-        # Retorna as últimas N mensagens do histórico
-        return "\n".join(message_history[user_id][-10:])  # Ajuste o número conforme necessário
+def get_formatted_message_history(id_usuario):
+    if id_usuario in historico_mensagens:
+        return "\n".join(historico_mensagens[id_usuario])
     else:
         return "Nenhum histórico de mensagens encontrado para este usuário."
+    
+def update_user_info(id_usuario, nome_usuario, timestamp, **kwargs):
+    if id_usuario not in info_usuario:
+        info_usuario[id_usuario] = {
+            "nome_usuario": nome_usuario,
+            "primeira_interacao": timestamp,
+            "ultima_interacao": timestamp,
+            "raca": "Desconhecida",
+            "classe": "Desconhecida",
+            "ingrediente_favorito": "Desconhecido"
+        }
+    else:
+        info_usuario[id_usuario]["ultima_interacao"] = timestamp
+        info_usuario[id_usuario]["nome_usuario"] = nome_usuario  # Atualiza o nome de usuário caso tenha mudado
+    
+    for chave in ["raca", "classe", "ingrediente_favorito"]:
+        if chave in kwargs:
+            info_usuario[id_usuario][chave] = kwargs[chave]
+    
+    save_data()
+    
+    
+def save_data():
+    with open('dados_bot.json', 'w') as f:
+        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
+
+def load_data():
+    global historico_mensagens, info_usuario
+    if os.path.exists('dados_bot.json'):
+        with open('dados_bot.json', 'r') as f:
+            dados = json.load(f)
+            historico_mensagens = dados.get('historico_mensagens', {})
+            info_usuario = dados.get('info_usuario', {})
+    else:
+        historico_mensagens = {}
+        info_usuario = {}
     
 #---------------------------------------------Sending Messages-------------------------------------------------
 async def split_and_send_messages(message_system, text, max_length):
