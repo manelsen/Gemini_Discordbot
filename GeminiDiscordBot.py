@@ -47,6 +47,8 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+load_data()
+
 #---------------------------------------------AI Configuration-------------------------------------------------
 
 # Configure the generative AI model
@@ -126,11 +128,10 @@ async def process_message(message):
     if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
         texto_limpo = clean_discord_message(message.content)
         id_usuario = str(message.author.id)
-        nome_usuario = message.author.name
         
         # Atualiza as informações básicas do usuário
         hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        update_user_info(id_usuario, nome_usuario, hora_atual)
+        update_user_info(id_usuario, hora_atual)
         
         async with message.channel.typing():
             if message.attachments or extract_url(texto_limpo):                # Currently no chat history for images
@@ -174,6 +175,8 @@ async def process_message(message):
                 # Check if history is disabled, just send response
                 await message.add_reaction('💬')
             info_atualizada = {}
+            if "meu nome é" in texto_limpo.lower():
+                info_atualizada['nome'] = texto_limpo.lower().split("meu nome é")[1].strip().split()[0]
             if "minha raça é" in texto_limpo.lower():
                 info_atualizada['raca'] = texto_limpo.lower().split("minha raça é")[1].strip().split()[0]
             if "minha classe é" in texto_limpo.lower():
@@ -182,7 +185,7 @@ async def process_message(message):
                 info_atualizada['ingrediente_favorito'] = texto_limpo.lower().split("meu ingrediente favorito é")[1].strip()
             
             if info_atualizada:
-                update_user_info(id_usuario, nome_usuario, hora_atual, **info_atualizada)
+                update_user_info(id_usuario, hora_atual, **info_atualizada)
 
             texto_resposta = await generate_response_with_context(id_usuario, texto_limpo)
 
@@ -200,7 +203,7 @@ async def generate_response_with_context(id_usuario, pergunta_atual):
     
     context = f"""
     Informações prioritárias do usuário:
-    - Nome: {dados_usuario.get('nome_usuario', 'Desconhecido')}
+    - Nome: {dados_usuario.get('nome', 'Desconhecido')}
     - Raça: {dados_usuario.get('raca', 'Desconhecida')}
     - Classe: {dados_usuario.get('classe', 'Desconhecida')}
     - Ingrediente favorito: {dados_usuario.get('ingrediente_favorito', 'Desconhecido')}
@@ -215,7 +218,7 @@ async def generate_response_with_context(id_usuario, pergunta_atual):
     Pergunta atual do usuário: {pergunta_atual}
 
     Por favor, responda à pergunta do usuário levando em consideração as informações prioritárias e o histórico da conversa. 
-    Dê especial atenção ao nome (que é o nome de exibição do Discord), raça, classe e ingrediente favorito do usuário em suas respostas quando relevante.
+    Dê especial atenção ao nome, raça, classe e ingrediente favorito do usuário em suas respostas quando relevante.
     Você pode ser criativo e sugerir pratos ou receitas baseadas no ingrediente favorito do usuário.
     Forneça uma resposta direta e relevante, demonstrando memória das informações prioritárias e das conversas anteriores quando apropriado.
     """
@@ -269,10 +272,10 @@ def get_formatted_message_history(id_usuario):
     else:
         return "Nenhum histórico de mensagens encontrado para este usuário."
     
-def update_user_info(id_usuario, nome_usuario, timestamp, **kwargs):
+def update_user_info(id_usuario, timestamp, **kwargs):
     if id_usuario not in info_usuario:
         info_usuario[id_usuario] = {
-            "nome_usuario": nome_usuario,
+            "nome": "Desconhecido",
             "primeira_interacao": timestamp,
             "ultima_interacao": timestamp,
             "raca": "Desconhecida",
@@ -281,9 +284,8 @@ def update_user_info(id_usuario, nome_usuario, timestamp, **kwargs):
         }
     else:
         info_usuario[id_usuario]["ultima_interacao"] = timestamp
-        info_usuario[id_usuario]["nome_usuario"] = nome_usuario  # Atualiza o nome de usuário caso tenha mudado
     
-    for chave in ["raca", "classe", "ingrediente_favorito"]:
+    for chave in ["nome", "raca", "classe", "ingrediente_favorito"]:
         if chave in kwargs:
             info_usuario[id_usuario][chave] = kwargs[chave]
     
