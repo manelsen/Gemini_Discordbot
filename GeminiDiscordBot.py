@@ -135,7 +135,7 @@ async def process_message(message):
         async with message.channel.typing():
             if message.attachments or extract_url(texto_limpo):                # Currently no chat history for images
                 for attachment in message.attachments:
-                    logger.info(f"New Image Message FROM: {message.author.name} : {cleaned_text}")
+                    logger.info(f"New Image Message FROM: {message.author.name} : {texto_limpo}")
                     # these are the only image extensions it currently accepts
                     if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
                         logger.info("Processing Image")
@@ -147,27 +147,27 @@ async def process_message(message):
                                     await message.channel.send('Unable to download the image.')
                                     return
                                 image_data = await resp.read()
-                                response_text = await generate_response_with_image_and_text(image_data, cleaned_text)
+                                response_text = await generate_response_with_image_and_text(image_data, texto_limpo)
                                 await split_and_send_messages(message, response_text, 1700)
                                 return
                     else:
-                        logger.info(f"New Text Message FROM: {message.author.name} : {cleaned_text}")
-                        await ProcessAttachments(message, cleaned_text)
+                        logger.info(f"New Text Message FROM: {message.author.name} : {texto_limpo}")
+                        await ProcessAttachments(message, texto_limpo)
                         return
             # Not an Image, check for text responses
             else:
-                logger.info(f"New Message FROM: {message.author.name} : {cleaned_text}")
+                logger.info(f"New Message FROM: {message.author.name} : {texto_limpo}")
                 # Check for Reset or Clean keyword
-                if "RESET" in cleaned_text or "CLEAN" in cleaned_text:
+                if "RESET" in texto_limpo or "CLEAN" in texto_limpo:
                     if message.author.name in message_history:
                         del message_history[message.author.name]
                     await message.reply("🧼 History Reset for user: " + str(message.author.name))
                     return
                 # Check for URLs
-                if extract_url(cleaned_text) is not None:
+                if extract_url(texto_limpo) is not None:
                     await message.add_reaction('🔗')
-                    logger.info(f"Got URL: {extract_url(cleaned_text)}")
-                    response_text = await ProcessURL(cleaned_text)
+                    logger.info(f"Got URL: {extract_url(texto_limpo)}")
+                    response_text = await ProcessURL(texto_limpo)
                     await split_and_send_messages(message, response_text, 1700)
                     return
                 
