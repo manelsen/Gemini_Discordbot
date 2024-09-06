@@ -128,7 +128,7 @@ async def process_message(message):
         cleaned_text = clean_discord_message(message.content)
         async with message.channel.typing():
             # Check for image attachments
-            if message.attachments:
+            if message.attachments or extract_url(cleaned_text):
                 # Currently no chat history for images
                 for attachment in message.attachments:
                     logger.info(f"New Image Message FROM: {message.author.name} : {cleaned_text}")
@@ -173,45 +173,33 @@ async def process_message(message):
                 else:
                     # Gerar resposta usando o novo método
                     response_text = await generate_response_with_context(message.author.name, cleaned_text)
-                # Add user's question to history
-                update_message_history(message.author.name, cleaned_text)
-                update_message_history(message.author.name, response_text)
-                # Add AI response to history
-                update_message_history(message.author.name, response_text)
-                # Split the Message so discord does not get upset
+                # Adicionar apenas a pergunta do usuário ao histórico
+                update_message_history(message.author.name, f"User: {cleaned_text}")
+                
+                # Adicionar a resposta do bot ao histórico
+                update_message_history(message.author.name, f"Bot: {response_text}")
+
+                # Enviar a resposta para o canal
                 await split_and_send_messages(message, response_text, 1700)
 
 
 #---------------------------------------------AI Generation History-------------------------------------------------           
 
 async def generate_response_with_context(user_id, current_question):
-    # Passo 1: Resumir o contexto histórico
     full_history = get_formatted_message_history(user_id)
-    context_prompt = f"""
-    Resumo do histórico de conversa com o usuário:
+    
+    prompt = f"""
+    Histórico da conversa:
     {full_history}
-    
-    Com base neste histórico, forneça um breve resumo dos pontos mais relevantes para a conversa atual.
-    Resumo:
-    """
-    context_summary = await generate_response_with_text(context_prompt)
-    
-    # Passo 2: Gerar resposta com base no resumo e na pergunta atual
-    response_prompt = f"""
-    Contexto resumido da conversa:
-    {context_summary}
-    
+
     Pergunta atual do usuário: {current_question}
-    
-    Por favor, responda à pergunta do usuário levando em consideração o contexto resumido, mas sem repetir informações anteriores desnecessariamente.
-    Resposta:
+
+    Por favor, responda à pergunta do usuário levando em consideração o histórico da conversa, 
+    mas sem repetir informações anteriores desnecessariamente. Forneça uma resposta direta e relevante.
     """
-    response = await generate_response_with_text(response_prompt)
     
+    response = await generate_response_with_text(prompt)
     return response
-
-
-
 
 async def generate_response_with_text(message_text):
     try:
@@ -241,25 +229,24 @@ async def generate_response_with_image_and_text(image_data, text):
             
 #---------------------------------------------Message History-------------------------------------------------
 def update_message_history(user_id, text):
-    if user_id in message_history:
-        message_history[user_id].append(text)
-        if len(message_history[user_id]) > MAX_HISTORY:
-            message_history[user_id].pop(0)
-    else:
-        message_history[user_id] = [text]
+    if user_id not in message_history:
+        message_history[user_id] = []
     
-    # Salva o histórico de mensagens após cada atualização
+    message_history[user_id].append(text)
+    
+    # Limita o histórico a um número máximo de mensagens
+    max_history_length = MAX_HISTORY
+    if len(message_history[user_id]) > max_history_length:
+        message_history[user_id] = message_history[user_id][-max_history_length:]
+    
     save_message_history()
         
 def get_formatted_message_history(user_id):
-    """
-    Function to return the message history for a given user_id with two line breaks between each message.
-    """
     if user_id in message_history:
-        # Join the messages with two line breaks
-        return '\n\n'.join(message_history[user_id])
+        # Retorna as últimas N mensagens do histórico
+        return "\n".join(message_history[user_id][-10:])  # Ajuste o número conforme necessário
     else:
-        return "No messages found for this user."
+        return "Nenhum histórico de mensagens encontrado para este usuário."
     
 #---------------------------------------------Sending Messages-------------------------------------------------
 async def split_and_send_messages(message_system, text, max_length):
