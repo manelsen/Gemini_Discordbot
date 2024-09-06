@@ -233,19 +233,19 @@ def get_formatted_message_history(user_id):
         return "No messages found for this user."
     
 #---------------------------------------------Sending Messages-------------------------------------------------
-    async def split_and_send_messages(message_system, text, max_length):
-        messages = []
-        for i in range(0, len(text), max_length):
-            sub_message = text[i:i+max_length]
-            messages.append(sub_message)
+async def split_and_send_messages(message_system, text, max_length):
+    messages = []
+    for i in range(0, len(text), max_length):
+        sub_message = text[i:i+max_length]
+        messages.append(sub_message)
 
-        # Enviar a primeira mensagem como uma resposta
-        if messages:
-            await message_system.reply(messages[0])
+    # Enviar a primeira mensagem como uma resposta
+    if messages:
+        await message_system.reply(messages[0])
 
-        # Enviar as mensagens restantes, se houver, como mensagens normais
-        for string in messages[1:]:
-            await message_system.channel.send(string)
+    # Enviar as mensagens restantes, se houver, como mensagens normais
+    for string in messages[1:]:
+        await message_system.channel.send(string)
 
 #cleans the discord message of any <@!123456789> tags
 import re
