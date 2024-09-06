@@ -97,6 +97,7 @@ def generate_global_summary():
     
     sumario_global = summary
     logger.info("Sumário global gerado com sucesso")
+    logger.debug(sumario_global)
     return summary
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
