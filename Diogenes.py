@@ -5,7 +5,9 @@ from discord.ext import commands
 import datetime
 import json
 import os
+import sys
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -13,12 +15,20 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
 # Configuração do logger
-import logging
+# Configuração do logger
 logger = logging.getLogger("bot_logger")
 logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler(filename="bot_log.log", encoding="utf-8", mode="w")
-handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
-logger.addHandler(handler)
+
+# Handler para arquivo
+file_handler = logging.FileHandler(filename="bot_log.log", encoding="utf-8", mode="a")
+file_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
+logger.addHandler(file_handler)
+
+# Handler para console
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
+logger.addHandler(console_handler)
+
 
 # Configuração do modelo AI
 genai.configure(api_key=GOOGLE_AI_KEY)
@@ -61,6 +71,33 @@ bot = commands.Bot(command_prefix="!", intents=defaultIntents)
 
 info_usuario = {}
 historico_mensagens = {}
+sumario_global = ""
+
+def generate_global_summary():
+    global sumario_global
+    logger.info("Gerando sumário global das conversas")
+    
+    summary = "Sumário de todas as conversas e preferências dos usuários:\n\n"
+    
+    for nome, dados in info_usuario.items():
+        summary += f"Usuário: {nome}\n"
+        summary += f"Raça: {dados['raca']}\n"
+        summary += f"Classe: {dados['classe']}\n"
+        summary += f"Ingrediente favorito: {dados['ingrediente_favorito']}\n"
+        summary += f"Primeira interação: {dados['primeira_interacao']}\n"
+        summary += f"Última interação: {dados['ultima_interacao']}\n"
+        
+        if nome in historico_mensagens:
+            ultimas_mensagens = historico_mensagens[nome][-30:]  # Últimas 30 mensagens
+            summary += "Últimas interações:\n"
+            for msg in ultimas_mensagens:
+                summary += f"- {msg}\n"
+        
+        summary += "\n"
+    
+    sumario_global = summary
+    logger.info("Sumário global gerado com sucesso")
+    return summary
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
     logger.debug(f"Atualizando informações para o usuário {nome_usuario}")
@@ -102,6 +139,10 @@ async def generate_response_with_context(nome_usuario, pergunta_atual):
     dados_usuario = get_user_info(nome_usuario)
     
     context = f"""
+    [INÍCIO DO CONTEXTO GLOBAL]
+    {sumario_global}
+    [FIM DO CONTEXTO GLOBAL]
+
     [INÍCIO DO CONTEXTO PARA O USUÁRIO {nome_usuario}]
     Informações prioritárias do usuário atual:
     - Nome: {nome_usuario}
@@ -119,10 +160,12 @@ async def generate_response_with_context(nome_usuario, pergunta_atual):
     Pergunta atual do usuário: {pergunta_atual}
 
     INSTRUÇÕES IMPORTANTES:
-    1. Responda APENAS com base nas informações fornecidas para este usuário específico ({nome_usuario}).
-    2. Use o nome '{nome_usuario}' para se referir ao usuário.
-    3. Se for perguntado sobre informações que não estão no contexto acima, diga que não tem essa informação.
-    4. Mantenha-se estritamente dentro do contexto fornecido para este usuário.
+    1. Use o contexto global para ter uma visão geral de todos os usuários e suas preferências.
+    2. Responda à pergunta do usuário atual ({nome_usuario}) com base nas informações específicas dele e no contexto global.
+    3. Você pode fazer referências sutis a preferências ou interações de outros usuários se for relevante, mas mantenha o foco no usuário atual.
+    4. Use o nome '{nome_usuario}' para se referir ao usuário atual.
+    5. Se for perguntado sobre informações que não estão no contexto acima, diga que não tem essa informação.
+    6. Mantenha-se dentro do contexto fornecido para este usuário e do contexto global.
 
     [FIM DO CONTEXTO PARA O USUÁRIO {nome_usuario}]
     """
@@ -145,6 +188,7 @@ async def generate_response_with_text(message_text):
         return "❌ Exception: " + str(e)
 
 async def process_message(message):
+    global sumario_global
     if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
@@ -178,6 +222,8 @@ async def process_message(message):
             
             if info_atualizada:
                 update_user_info(nome_usuario, hora_atual, **info_atualizada)
+                # Regenera o sumário global após atualizações significativas
+                sumario_global = generate_global_summary()
 
             texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
 
