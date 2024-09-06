@@ -88,7 +88,7 @@ def generate_global_summary():
         summary += f"Última interação: {dados['ultima_interacao']}\n"
         
         if nome in historico_mensagens:
-            ultimas_mensagens = historico_mensagens[nome][-30:]  # Últimas 30 mensagens
+            ultimas_mensagens = historico_mensagens[nome][-5:]  # Últimas 5 mensagens
             summary += "Últimas interações:\n"
             for msg in ultimas_mensagens:
                 summary += f"- {msg}\n"
@@ -97,7 +97,14 @@ def generate_global_summary():
     
     sumario_global = summary
     logger.info("Sumário global gerado com sucesso")
-    logger.debug(sumario_global)
+    
+    # Exibe o sumário global completo no console
+    print("\n" + "="*50)
+    print("SUMÁRIO GLOBAL ATUALIZADO:")
+    print("="*50)
+    print(summary)
+    print("="*50 + "\n")
+    
     return summary
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
@@ -224,7 +231,7 @@ async def process_message(message):
             if info_atualizada:
                 update_user_info(nome_usuario, hora_atual, **info_atualizada)
                 # Regenera o sumário global após atualizações significativas
-                sumario_global = generate_global_summary()
+                generate_global_summary()  # Isso agora exibirá o sumário atualizado
 
             texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
 
@@ -317,6 +324,7 @@ async def on_ready():
     logger.info(f'Gemini Bot Logged in as {bot.user}')
     logger.info("----------------------------------------")
     load_data()
+    generate_global_summary()  # Isso exibirá o sumário inicial
 
 @bot.event
 async def on_message(message):
