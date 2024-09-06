@@ -101,13 +101,6 @@ async def generate_global_summary():
 
     {raw_summary}
 
-    O resumo deve:
-    1. Ter exatamente 3000 caracteres, separados por usuário e em bullets cronológicos.
-    2. Ter topícos para todos os usuários, sem exceção de nenhum.
-    2. Incluir informações relevantes das 15 últimas mensagens de cada usuário, especialmente recados e senhas.
-    3. Apresentar uma visão detalhada dos usuários ativos, suas características e padrões de interação.
-    4. Destacar temas recorrentes ou informações importantes das conversas.
-    5. Colocar um resumo factual das 10 últimas mensagens
     """
 
     concise_summary = await generate_response_with_text(prompt)
