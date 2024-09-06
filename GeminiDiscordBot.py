@@ -47,8 +47,6 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-load_data()
-
 #---------------------------------------------AI Configuration-------------------------------------------------
 
 # Configure the generative AI model
@@ -105,6 +103,23 @@ def load_message_history():
             message_history = json.load(f)
     else:
         message_history = {}
+        
+def save_data():
+    with open('dados_bot.json', 'w') as f:
+        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
+
+def load_data():
+    global historico_mensagens, info_usuario
+    if os.path.exists('dados_bot.json'):
+        with open('dados_bot.json', 'r') as f:
+            dados = json.load(f)
+            historico_mensagens = dados.get('historico_mensagens', {})
+            info_usuario = dados.get('info_usuario', {})
+    else:
+        historico_mensagens = {}
+        info_usuario = {}
+        
+load_data()
 
 @bot.event
 async def on_ready():
@@ -290,22 +305,6 @@ def update_user_info(id_usuario, timestamp, **kwargs):
             info_usuario[id_usuario][chave] = kwargs[chave]
     
     save_data()
-    
-    
-def save_data():
-    with open('dados_bot.json', 'w') as f:
-        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
-
-def load_data():
-    global historico_mensagens, info_usuario
-    if os.path.exists('dados_bot.json'):
-        with open('dados_bot.json', 'r') as f:
-            dados = json.load(f)
-            historico_mensagens = dados.get('historico_mensagens', {})
-            info_usuario = dados.get('info_usuario', {})
-    else:
-        historico_mensagens = {}
-        info_usuario = {}
     
 #---------------------------------------------Sending Messages-------------------------------------------------
 async def split_and_send_messages(message_system, text, max_length):
