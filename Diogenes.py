@@ -101,6 +101,7 @@ async def generate_global_summary():
 
     {raw_summary}
 
+    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e uma informação relavante sobre cada usuário, sem exceção de nenhum. Organize por bullets.
     """
 
     concise_summary = await generate_response_with_text(prompt)
