@@ -246,12 +246,44 @@ async def split_and_send_messages(message_system, text, max_length):
         await message_system.channel.send(string)    
 
 #cleans the discord message of any <@!123456789> tags
+import re
+
 def clean_discord_message(input_string):
     # Create a regular expression pattern to match text between < and >
     bracket_pattern = re.compile(r'<[^>]+>')
     # Replace text between brackets with an empty string
     cleaned_content = bracket_pattern.sub('', input_string)
-    return cleaned_content  
+    
+    # Split the content into lines
+    lines = cleaned_content.split('\n')
+    
+    # Process each line
+    cleaned_lines = []
+    skip_next = False
+    for line in lines:
+        if skip_next:
+            if line.strip() == '':
+                skip_next = False
+            continue
+        
+        # Check if the line starts with "[Reply to]"
+        if line.strip().startswith('[Reply to]'):
+            skip_next = True
+            continue
+        
+        # Remove quoted text (text after > at the beginning of a line)
+        if line.strip().startswith('>'):
+            continue
+        
+        cleaned_lines.append(line)
+    
+    # Join the cleaned lines
+    cleaned_content = '\n'.join(cleaned_lines)
+    
+    # Remove extra whitespace
+    cleaned_content = re.sub(r'\s+', ' ', cleaned_content).strip()
+    
+    return cleaned_content
 
 #---------------------------------------------Scraping Text from URL-------------------------------------------------
 
