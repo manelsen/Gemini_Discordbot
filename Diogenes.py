@@ -1,28 +1,28 @@
 import re
-import discord
-import google.generativeai as genai
-from discord.ext import commands
+import discord # type: ignore
+import google.generativeai as genai # type: ignore
+from discord.ext import commands # type: ignore
 import datetime
-import json
 import os
 import sys
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 import logging
+import aiosqlite
+import asyncio
+from cachetools import TTLCache
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
+DB_PATH = "bot_data.db"
 
-# Configuração do logger
 # Configuração do logger
 logger = logging.getLogger("bot_logger")
 logger.setLevel(logging.DEBUG)
-
-# Handler para arquivo
-file_handler = logging.FileHandler(filename="bot_log.log", encoding="utf-8", mode="a")
-file_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
-logger.addHandler(file_handler)
+handler = logging.FileHandler(filename="bot_log.log", encoding="utf-8", mode="a")
+handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s: %(message)s"))
+logger.addHandler(handler)
 
 # Handler para console
 console_handler = logging.StreamHandler(sys.stdout)
@@ -75,6 +75,21 @@ info_usuario = {}
 historico_mensagens = {}
 sumario_global = ""
 
+ Cache para informações de usuário e histórico de mensagens recentes
+user_info_cache = TTLCache(maxsize=1000, ttl=3600)  # 1 hora de TTL
+message_history_cache = TTLCache(maxsize=1000, ttl=3600)
+
+async def init_db():
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute('''CREATE TABLE IF NOT EXISTS user_info
+                            (name TEXT PRIMARY KEY, raca TEXT, classe TEXT, ingrediente_favorito TEXT,
+                             primeira_interacao TEXT, ultima_interacao TEXT)''')
+        await db.execute('''CREATE TABLE IF NOT EXISTS message_history
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             name TEXT, timestamp TEXT, content TEXT, is_user BOOLEAN)''')
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_message_history_name ON message_history(name)')
+        await db.commit()
+
 async def generate_global_summary():
     global sumario_global
     logger.info("Gerando sumário global das conversas")
@@ -123,39 +138,63 @@ async def generate_global_summary():
     
     return sumario_global
 
-def update_user_info(nome_usuario, timestamp, **kwargs):
-    logger.debug(f"Atualizando informações para o usuário {nome_usuario}")
-    if nome_usuario not in info_usuario:
-        info_usuario[nome_usuario] = {
-            "primeira_interacao": timestamp,
-            "ultima_interacao": timestamp,
-            "raca": "Desconhecida",
-            "classe": "Desconhecida",
-            "ingrediente_favorito": "Desconhecido"
-        }
-        logger.info(f"Novo usuário criado: {nome_usuario}")
+async def update_user_info(name, **kwargs):
+    async with aiosqlite.connect(DB_PATH) as db:
+        current_info = await get_user_info(name)
+        if current_info:
+            set_clause = ', '.join(f'{k} = ?' for k in kwargs)
+            values = list(kwargs.values()) + [name]
+            await db.execute(f'UPDATE user_info SET {set_clause} WHERE name = ?', values)
+        else:
+            columns = ['name'] + list(kwargs.keys())
+            placeholders = ', '.join('?' * len(columns))
+            values = [name] + list(kwargs.values())
+            await db.execute(f'INSERT INTO user_info ({", ".join(columns)}) VALUES ({placeholders})', values)
+        await db.commit()
     
-    info_usuario[nome_usuario]["ultima_interacao"] = timestamp
-    
-    for chave, valor in kwargs.items():
-        if chave in ["raca", "classe", "ingrediente_favorito"]:
-            old_value = info_usuario[nome_usuario].get(chave, "Desconhecido")
-            info_usuario[nome_usuario][chave] = valor
-            logger.info(f"Usuário {nome_usuario}: {chave} atualizado de '{old_value}' para '{valor}'")
-    
-    save_data()
+    user_info_cache[name] = await get_user_info(name)
 
-def get_user_info(nome_usuario):
-    logger.debug(f"Recuperando informações do usuário {nome_usuario}")
-    user_data = info_usuario.get(nome_usuario, {
-        "raca": "Desconhecida",
-        "classe": "Desconhecida",
-        "ingrediente_favorito": "Desconhecido",
-        "primeira_interacao": "Desconhecida",
-        "ultima_interacao": "Desconhecida"
-    })
-    logger.debug(f"Dados recuperados para {nome_usuario}: {user_data}")
-    return user_data
+async def get_user_info(name):
+    if name in user_info_cache:
+        return user_info_cache[name]
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute('SELECT * FROM user_info WHERE name = ?', (name,)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                info = dict(zip(['name', 'raca', 'classe', 'ingrediente_favorito', 'primeira_interacao', 'ultima_interacao'], row))
+                user_info_cache[name] = info
+                return info
+    return None
+
+async def get_message_history(name, limit=None):
+    query = 'SELECT timestamp, content, is_user FROM message_history WHERE name = ? ORDER BY timestamp DESC'
+    params = [name]
+    if limit:
+        query += ' LIMIT ?'
+        params.append(limit)
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            history = [f"[{row[0]}] {'Usuário' if row[2] else 'Bot'}: {row[1]}" for row in rows]
+            return history
+        
+async def add_message_to_history(name, content, is_user):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute('INSERT INTO message_history (name, timestamp, content, is_user) VALUES (?, ?, ?, ?)',
+                         (name, timestamp, content, is_user))
+        await db.commit()
+        
+async def delete_user_data(name):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute('DELETE FROM user_info WHERE name = ?', (name,))
+        await db.execute('DELETE FROM message_history WHERE name = ?', (name,))
+        await db.commit()
+    
+    user_info_cache.pop(name, None)
+    message_history_cache.pop(name, None)
 
 async def generate_response_with_context(nome_usuario, pergunta_atual):
     logger.debug(f"Gerando resposta para o usuário {nome_usuario}")
@@ -241,8 +280,7 @@ async def process_message(message):
         texto_limpo = clean_discord_message(message.content)
         hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Atualiza as informações básicas do usuário
-        update_user_info(nome_usuario, hora_atual)
+        await update_user_info(nome_usuario, ultima_interacao=hora_atual)
         
         async with message.channel.typing():
             info_atualizada = {}
@@ -267,8 +305,8 @@ async def process_message(message):
 
             texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
 
-            update_message_history(nome_usuario, texto_limpo, eh_usuario=True)
-            update_message_history(nome_usuario, texto_resposta, eh_usuario=False)
+            await add_message_to_history(nome_usuario, texto_limpo, True)
+            await add_message_to_history(nome_usuario, texto_resposta, False)
             await generate_global_summary()
 
             logger.info(f"Enviando resposta para o usuário {nome_usuario}")
@@ -284,32 +322,12 @@ def update_message_history(nome_usuario, texto, eh_usuario=True):
     
     if len(historico_mensagens[nome_usuario]) > MAX_HISTORY:
         historico_mensagens[nome_usuario] = historico_mensagens[nome_usuario][-MAX_HISTORY:]
-    
-    save_data()
 
 def get_formatted_message_history(nome_usuario):
     if nome_usuario in historico_mensagens:
         return "\n".join(historico_mensagens[nome_usuario])
     else:
         return "Nenhum histórico de mensagens encontrado para este usuário."
-
-def save_data():
-    with open('dados_bot.json', 'w') as f:
-        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
-    logger.info("Dados salvos com sucesso")
-
-def load_data():
-    global historico_mensagens, info_usuario
-    if os.path.exists('dados_bot.json'):
-        with open('dados_bot.json', 'r') as f:
-            dados = json.load(f)
-            historico_mensagens = dados.get('historico_mensagens', {})
-            info_usuario = dados.get('info_usuario', {})
-        logger.info("Dados carregados com sucesso")
-    else:
-        historico_mensagens = {}
-        info_usuario = {}
-        logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
 
 async def split_and_send_messages(message_system, text, max_length):
     messages = []
@@ -376,46 +394,27 @@ async def on_message(message):
 @bot.command()
 @commands.check(is_voiddragon)
 async def lgpd(ctx, *, user_name: str):
-    global info_usuario, historico_mensagens
-    
-    # Remove espaços extras e aspas, se houver
     user_name = user_name.strip().strip('"')
-
-    if user_name in info_usuario:
-        del info_usuario[user_name]
-        logger.info(f"Informações do usuário {user_name} apagadas")
-    else:
-        logger.warning(f"Usuário {user_name} não encontrado em info_usuario")
-    
-    if user_name in historico_mensagens:
-        del historico_mensagens[user_name]
-        logger.info(f"Histórico de mensagens do usuário {user_name} apagado")
-    else:
-        logger.warning(f"Usuário {user_name} não encontrado em historico_mensagens")
-
-    save_data()
-    await generate_global_summary()
+    await delete_user_data(user_name)
     await ctx.send(f"Todas as informações e mensagens de '{user_name}' foram apagadas.")
 
 @bot.command()
 @commands.check(is_voiddragon)
 async def dump(ctx, *, user_name: str):
-    # Remove espaços extras e aspas, se houver
     user_name = user_name.strip().strip('"')
-
-    if user_name not in info_usuario:
+    user_info = await get_user_info(user_name)
+    if not user_info:
         await ctx.send(f"Usuário '{user_name}' não encontrado.")
         return
-
-    user_info = get_user_info(user_name)
-    user_messages = get_formatted_message_history(user_name)
 
     info_dump = f"Informações do usuário {user_name}:\n"
     for key, value in user_info.items():
         info_dump += f"{key}: {value}\n"
 
     await ctx.send(info_dump)
-    await split_and_send_messages(ctx, f"Mensagens do usuário {user_name}:\n{user_messages}", 1900)
+    
+    user_messages = await get_message_history(user_name)
+    await split_and_send_messages(ctx, f"Mensagens do usuário {user_name}:\n" + "\n".join(user_messages), 1900)
 
 @bot.event
 async def on_command_error(ctx, error):
@@ -431,4 +430,4 @@ if __name__ == "__main__":
     try:
         bot.run(DISCORD_BOT_TOKEN)
     finally:
-        save_data()
+        db.commit()
