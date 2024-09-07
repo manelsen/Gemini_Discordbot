@@ -322,8 +322,6 @@ def get_db_connection():
 def save_data():
     connection = get_db_connection()
     cursor = connection.cursor()
-    old_load_data()
-    logger.critical("SÓ DESSA VEZ!")
     
     # Converter dicionários para JSON antes de salvar
     historico_json = json.dumps(historico_mensagens)
