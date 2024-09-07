@@ -59,6 +59,8 @@ Seu nome é Diógenes. Você:
     * é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
     * nunca quis ser um aventureiro, porque prefere a vida na taverna.
     * dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação.
+    * usa markdown negrito para descrever ações e markdown itálico para palavras
+    * só oferece pratos e bebidas uma vez e, depois disso, caso alguém peça.
 
 Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
 Se alguém te pedir, você vai criar histórias detalhadas sobre as aventuras de Bartolomeu o Anão.
@@ -334,6 +336,43 @@ def clean_discord_message(input_string):
     
     return cleaned_content
 
+
+def find_user_by_name(name):
+    for user_id, user_data in info_usuario.items():
+        if user_data.get('nome', '').lower() == name.lower():
+            return user_id
+    return None
+
+async def dump_user_data(user_name):
+    user_id = find_user_by_name(user_name)
+    if not user_id:
+        return f"Usuário '{user_name}' não encontrado."
+    
+    user_info = info_usuario.get(user_id, {})
+    user_messages = historico_mensagens.get(user_id, [])
+    
+    formatted_info = f"Informações do usuário {user_name}:\n"
+    for key, value in user_info.items():
+        formatted_info += f"{key.capitalize()}: {value}\n"
+    
+    formatted_messages = "\nHistórico de mensagens:\n"
+    for message in user_messages:
+        formatted_messages += f"{message}\n"
+    
+    return formatted_info + formatted_messages
+
+async def delete_user_data(user_name):
+    user_id = find_user_by_name(user_name)
+    if not user_id:
+        return f"Usuário '{user_name}' não encontrado."
+    
+    if user_id in info_usuario:
+        del info_usuario[user_id]
+    if user_id in historico_mensagens:
+        del historico_mensagens[user_id]
+    save_data()
+    return f"Todas as informações e mensagens do usuário '{user_name}' foram eliminadas."
+
 @bot.event
 async def on_ready():
     logger.info("----------------------------------------")
@@ -344,6 +383,29 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if message.content.startswith('!dump') or message.content.startswith('!lgpd'):
+        parts = message.content.split(maxsplit=1)
+        if len(parts) != 2:
+            await message.channel.send("Por favor, forneça o nome do usuário. Exemplo: !dump NomeDoUsuario")
+            return
+        
+        command, user_name = parts
+        
+        if command == '!dump':
+            response = await dump_user_data(user_name)
+        else:  # !lgpd
+            # Verificar se o autor da mensagem é o usuário "voiddragon"
+            if message.author.name.lower() != "voiddragon":
+                await message.channel.send("Apenas o usuário 'voiddragon' pode executar o comando !lgpd.")
+                return
+            response = await delete_user_data(user_name)
+        
+        await split_and_send_messages(message, response, 1900)
+        return
+
     await process_message(message)
 
 if __name__ == "__main__":
