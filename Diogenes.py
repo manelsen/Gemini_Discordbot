@@ -211,13 +211,31 @@ async def generate_response_with_text(message_text):
         logger.error(str(e))
         return "❌ Exception: " + str(e)
 
+async def should_respond(message):
+    # Responde sempre em DMs
+    if isinstance(message.channel, discord.DMChannel):
+        return True
+    
+    # Verifica se é um bot e se mencionou nosso bot ou está respondendo a ele
+    if message.author.bot:
+        # Verifica menção direta
+        if bot.user in message.mentions:
+            return True
+        
+        # Verifica se está respondendo a uma mensagem do nosso bot
+        if message.reference:
+            referenced_message = await message.channel.fetch_message(message.reference.message_id)
+            if referenced_message.author == bot.user:
+                return True
+    
+    return False
+
 async def process_message(message):
     global sumario_global
     if message.author == bot.user:
         return
 
-    # Verifica se a mensagem é em um canal privado (DM) ou se é de um bot em um canal público
-    if isinstance(message.channel, discord.DMChannel) or (not isinstance(message.channel, discord.DMChannel) and message.author.bot):
+    if await should_respond(message):
         nome_usuario = message.author.name
         logger.info(f"Processando mensagem do usuário {nome_usuario}")
         
@@ -334,6 +352,10 @@ def clean_discord_message(input_string):
     
     return cleaned_content
 
+
+def is_voiddragon(ctx):
+    return ctx.author.name == "voiddragon"
+
 @bot.event
 async def on_ready():
     logger.info("----------------------------------------")
@@ -344,10 +366,11 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    await bot.process_commands(message)  # This line allows the bot to process commands
-    await process_message(message)    
+    await bot.process_commands(message)  # Processa comandos primeiro
+    await process_message(message)  # Processa a mensagem em seguida
     
 @bot.command()
+@commands.check(is_voiddragon)
 async def lgpd(ctx, user: discord.User):
     if ctx.author.name != "voiddragon":
         await ctx.send("Você não tem permissão para usar este comando.")
@@ -366,8 +389,12 @@ async def lgpd(ctx, user: discord.User):
     await ctx.send(f"Todas as informações e mensagens de {user_name} foram apagadas.")
 
 @bot.command()
-async def dump(ctx, user: discord.User):
-    user_name = user.name
+@commands.check(is_voiddragon)
+async def dump(ctx, user_name: str):
+    if user_name not in info_usuario:
+        await ctx.send(f"Usuário '{user_name}' não encontrado.")
+        return
+
     user_info = get_user_info(user_name)
     user_messages = get_formatted_message_history(user_name)
 
@@ -377,7 +404,12 @@ async def dump(ctx, user: discord.User):
 
     await ctx.send(info_dump)
     await split_and_send_messages(ctx, f"Mensagens do usuário {user_name}:\n{user_messages}", 1900)
-
+    
+    
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CheckFailure):
+        await ctx.send("Você não tem permissão para usar este comando.")
 
 if __name__ == "__main__":
     try:
