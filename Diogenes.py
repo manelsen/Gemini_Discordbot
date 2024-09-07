@@ -85,6 +85,7 @@ sumario_global = ""
 
 async def generate_global_summary():
     global sumario_global
+    global gemini_model
     ajuste_ai(5000)
     logger.info("Gerando sumário global das conversas")
     
@@ -290,23 +291,23 @@ def get_formatted_message_history(nome_usuario):
     else:
         return "Nenhum histórico de mensagens encontrado para este usuário."
 
-#def save_data():
+#def old_save_data():
 #    with open('dados_bot.json', 'w') as f:
 #        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
 #    logger.info("Dados salvos com sucesso")
 
-# def load_data():
-#     global historico_mensagens, info_usuario
-#     if os.path.exists('dados_bot.json'):
-#         with open('dados_bot.json', 'r') as f:
-#             dados = json.load(f)
-#             historico_mensagens = dados.get('historico_mensagens', {})
-#             info_usuario = dados.get('info_usuario', {})
-#         logger.info("Dados carregados com sucesso")
-#     else:
-#         historico_mensagens = {}
-#         info_usuario = {}
-#         logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
+ def old_load_data():
+     global historico_mensagens, info_usuario
+     if os.path.exists('dados_bot.json'):
+         with open('dados_bot.json', 'r') as f:
+             dados = json.load(f)
+             historico_mensagens = dados.get('historico_mensagens', {})
+             info_usuario = dados.get('info_usuario', {})
+         logger.info("Dados carregados com sucesso")
+     else:
+         historico_mensagens = {}
+         info_usuario = {}
+         logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
 
 conn = None
 
@@ -321,6 +322,8 @@ def get_db_connection():
 def save_data():
     connection = get_db_connection()
     cursor = connection.cursor()
+    old_load_data()
+    logger.critical("SÓ DESSA VEZ!")
     
     # Converter dicionários para JSON antes de salvar
     historico_json = json.dumps(historico_mensagens)
