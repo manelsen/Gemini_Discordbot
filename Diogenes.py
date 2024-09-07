@@ -30,7 +30,6 @@ console_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name
 logger.addHandler(console_handler)
 
 # Configuração do modelo AI
-gemini_model = 
 
 def ajuste_ai(tokens):
     genai.configure(api_key=GOOGLE_AI_KEY)
