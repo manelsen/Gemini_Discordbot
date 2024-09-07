@@ -130,6 +130,7 @@ def update_user_info(nome_usuario, timestamp, **kwargs):
     logger.debug(f"Atualizando informações para o usuário {nome_usuario}")
     if nome_usuario not in info_usuario:
         info_usuario[nome_usuario] = {
+            "nome": nome_usuario,  # Adicionando o nome explicitamente
             "primeira_interacao": timestamp,
             "ultima_interacao": timestamp,
             "raca": "Desconhecida",
@@ -147,6 +148,9 @@ def update_user_info(nome_usuario, timestamp, **kwargs):
             logger.info(f"Usuário {nome_usuario}: {chave} atualizado de '{old_value}' para '{valor}'")
     
     save_data()
+    
+def find_user_by_name(name):
+    return name if name in info_usuario else None
 
 def get_user_info(nome_usuario):
     logger.debug(f"Recuperando informações do usuário {nome_usuario}")
@@ -336,7 +340,6 @@ def clean_discord_message(input_string):
     
     return cleaned_content
 
-
 def find_user_by_name(name):
     for user_id, user_data in info_usuario.items():
         if user_data.get('nome', '').lower() == name.lower():
@@ -397,7 +400,6 @@ async def on_message(message):
         if command == '!dump':
             response = await dump_user_data(user_name)
         else:  # !lgpd
-            # Verificar se o autor da mensagem é o usuário "voiddragon"
             if message.author.name.lower() != "voiddragon":
                 await message.channel.send("Apenas o usuário 'voiddragon' pode executar o comando !lgpd.")
                 return
