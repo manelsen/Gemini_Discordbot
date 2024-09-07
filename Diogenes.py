@@ -376,10 +376,6 @@ async def on_message(message):
 @bot.command()
 @commands.check(is_voiddragon)
 async def lgpd(ctx, user: discord.User):
-    if ctx.author.name != "voiddragon":
-        await ctx.send("Você não tem permissão para usar este comando.")
-        return
-
     global info_usuario, historico_mensagens
     user_name = user.name
 
