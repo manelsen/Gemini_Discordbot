@@ -15,7 +15,6 @@ DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
 # Configuração do logger
-# Configuração do logger
 logger = logging.getLogger("bot_logger")
 logger.setLevel(logging.DEBUG)
 
@@ -32,9 +31,9 @@ logger.addHandler(console_handler)
 # Configuração do modelo AI
 genai.configure(api_key=GOOGLE_AI_KEY)
 text_generation_config = {
-    "temperature": 0.9,
-    "top_p": 1,
-    "top_k": 1,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "top_k": 40,
     "max_output_tokens": 5000,
 }
 safety_settings = [
@@ -47,25 +46,24 @@ safety_settings = [
 gemini_system_prompt = f"""
 Seu nome é Diógenes. Você:
 
+    * se não sabe sobre um assunto, não inventa.
     * é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
-    * vive no mundo de Toril, na cidade de Tremond.
+    * vive no mundo de Toril, na cidade de Tremond, e sonha em se tornar um Bardo da Eloquência.
     * é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu.
-    * foi ensinado a servir bebidas e preparar a comida, mas aceita sugestões.
-    * fala com muito orgulho das aventuras do fabuloso anão Bartolomeu desbravando Toril.
-    * foi ensinado a servir bebidas e preparar a comida, mas aceita sugestões.
-    * fala com muito orgulho das aventuras do fabuloso anão Bartolomeu desbravando Toril.
+    * sabe preparar bebidas simples e complexas e pratos simples e complexos.
+    * fala com gratidão do anão Bartolomeu. Sente um pouco de saudade.
     * fala com respeito quase reverencial do Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
-    * não sabe nada do tempo moderno e não conhece nenhuma pessoa, organização ou tecnologia que não exista em Dungeons and Dragons.
+    * queria ter conhecido o Elfo Patrulheiro Arannis, o Minotauro Gladiador Miguel e o Bardo Rodolfo, todos falecidos.
+    * conhece muito da história, geografia, fauna e flora de Dungeons and Dragons.
     * é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
     * nunca quis ser um aventureiro, porque prefere a vida na taverna.
     * dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação.
-    * usa markdown negrito para descrever ações e markdown itálico para palavras
-    * só oferece pratos e bebidas uma vez e, depois disso, caso alguém peça.
+    * usa respostas em prosa, alternando ações e falas.
+    * só oferece pratos e bebidas uma vez.
 
 Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
-Se alguém te pedir, você vai criar histórias detalhadas sobre as aventuras de Bartolomeu o Anão.
-O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos, por exemplo unicórnios rurais, dragões domesticados e tatuzinho coró. Se você souber o ingrediente favorito da pessoa que te perguntar, sugerirá vários pratos baseados nele.
-Se alguém te confiar um segredo ou senha destinado a uma pessoa em específico, em hipótese nenhuma você contará para alguém que não seja o destinatário. Esse é o maior ensinamento que você recebeu do Grande Sussurro.
+Se alguém te pedir, você vai criar histórias altamente detalhadas sobre as aventuras de algum aventureiro cujo nome conheça mas não esteja na taverna naquele momento.
+O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos do pântano, da floresta e da neve. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
 """
 gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
@@ -221,7 +219,8 @@ async def generate_response_with_text(message_text):
 async def process_message(message):
     global sumario_global
     
-    if message.author == bot.user or message.mention_everyone or (not message.author.bot and not isinstance(message.channel, discord.DMChannel)):        return
+    if message.author == bot.user or message.mention_everyone or (not message.author.bot and not isinstance(message.channel, discord.DMChannel)):
+        return
 
     if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
         nome_usuario = message.author.name
@@ -236,7 +235,8 @@ async def process_message(message):
         async with message.channel.typing():
             info_atualizada = {}
             if "meu nome é" in texto_limpo.lower():
-                novo_nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0]
+                novo_nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0].capitalize()
+                
                 if novo_nome != nome_usuario:
                     if novo_nome in info_usuario:
                         await message.channel.send(f"Desculpe, o nome '{novo_nome}' já está em uso. Por favor, escolha outro nome.")
@@ -347,6 +347,7 @@ def find_user_by_name(name):
     return None
 
 async def dump_user_data(user_name):
+    logger.info(f"Buscando user {user_name}")
     user_id = find_user_by_name(user_name)
     if not user_id:
         return f"Usuário '{user_name}' não encontrado."
