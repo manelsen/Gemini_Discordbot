@@ -213,7 +213,7 @@ async def generate_response_with_text(message_text):
 
 async def process_message(message):
     global sumario_global
-    if message.author == bot.user or message.mention_everyone or not (message.author.bot or not isinstance(discord.DMChannel, discord.DMChannel)):
+    if message.author == bot.user or message.mention_everyone or not message.author.bot:
         return
 
     if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
@@ -229,7 +229,7 @@ async def process_message(message):
         async with message.channel.typing():
             info_atualizada = {}
             if "meu nome é" in texto_limpo.lower():
-                novo_nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0]
+                novo_nome = (texto_limpo.lower().split("meu nome é")[1].strip().split()[0]).capitalize
                 if novo_nome != nome_usuario:
                     if novo_nome in info_usuario:
                         await message.channel.send(f"Desculpe, o nome '{novo_nome}' já está em uso. Por favor, escolha outro nome.")
