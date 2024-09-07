@@ -413,7 +413,6 @@ async def on_ready():
     logger.info("----------------------------------------")
     logger.info(f'Gemini Bot Logged in as {bot.user}')
     logger.info("----------------------------------------")
-    load_data()
     # await generate_global_summary()  # Isso exibirá o sumário inicial
 
 @bot.event
