@@ -87,7 +87,7 @@ async def generate_global_summary():
         raw_summary += f"Primeira interação: {dados['primeira_interacao']}, Última: {dados['ultima_interacao']}\n"
         
         if nome in historico_mensagens:
-            ultimas_mensagens = historico_mensagens[nome][-15:]  # Últimas 15 mensagens
+            ultimas_mensagens = historico_mensagens[nome][-30:]  # Últimas 30 mensagens
             raw_summary += "Últimas interações:\n"
             for msg in ultimas_mensagens:
                 raw_summary += f"- {msg}\n"  # Mensagem completa
@@ -100,7 +100,7 @@ async def generate_global_summary():
 
     {raw_summary}
 
-    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e informações relavantes sobre cada usuário, sem exceção de nenhum. Organize por bullets.
+    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e informações relavantes sobre cada usuário, sem exceção de nenhum. Nenhum timestamp deverá aparecer nesse resumo. Organize tudo0---- por bullets.
     
     O padrão a seguir é:
     
@@ -110,9 +110,9 @@ async def generate_global_summary():
     * Cinco pessoas com quem mais interage:
     * Ingrediente Favorito: 
     * Lista de Interações: 
-    ** interação importante 1
-    ** interação importante 2
-    ** interação importante 3
+    ** interação importante resumida 1
+    ** interação importante resumida 2
+    ** interação importante resumida 3
     ** etc
 """
 
@@ -213,10 +213,11 @@ async def generate_response_with_text(message_text):
 
 async def process_message(message):
     global sumario_global
-    if message.author == bot.user or message.mention_everyone or not message.author.bot:
+    if message.author == bot.user:
         return
 
-    if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
+    # Verifica se a mensagem é em um canal privado (DM) ou se é de um bot em um canal público
+    if isinstance(message.channel, discord.DMChannel) or (not isinstance(message.channel, discord.DMChannel) and message.author.bot):
         nome_usuario = message.author.name
         logger.info(f"Processando mensagem do usuário {nome_usuario}")
         
@@ -229,7 +230,7 @@ async def process_message(message):
         async with message.channel.typing():
             info_atualizada = {}
             if "meu nome é" in texto_limpo.lower():
-                novo_nome = (texto_limpo.lower().split("meu nome é")[1].strip().split()[0]).capitalize
+                novo_nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0].capitalize()
                 if novo_nome != nome_usuario:
                     if novo_nome in info_usuario:
                         await message.channel.send(f"Desculpe, o nome '{novo_nome}' já está em uso. Por favor, escolha outro nome.")
@@ -251,7 +252,7 @@ async def process_message(message):
 
             update_message_history(nome_usuario, texto_limpo, eh_usuario=True)
             update_message_history(nome_usuario, texto_resposta, eh_usuario=False)
-            await generate_global_summary()  # Isso agora exibirá o sumário atualizado
+            await generate_global_summary()
 
             logger.info(f"Enviando resposta para o usuário {nome_usuario}")
             await split_and_send_messages(message, texto_resposta, 1700)
@@ -343,7 +344,40 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    await process_message(message)
+    await bot.process_commands(message)  # This line allows the bot to process commands
+    await process_message(message)    
+    
+@bot.command()
+async def lgpd(ctx, user: discord.User):
+    if ctx.author.name != "voiddragon":
+        await ctx.send("Você não tem permissão para usar este comando.")
+        return
+
+    global info_usuario, historico_mensagens
+    user_name = user.name
+
+    if user_name in info_usuario:
+        del info_usuario[user_name]
+    if user_name in historico_mensagens:
+        del historico_mensagens[user_name]
+
+    save_data()
+    await generate_global_summary()
+    await ctx.send(f"Todas as informações e mensagens de {user_name} foram apagadas.")
+
+@bot.command()
+async def dump(ctx, user: discord.User):
+    user_name = user.name
+    user_info = get_user_info(user_name)
+    user_messages = get_formatted_message_history(user_name)
+
+    info_dump = f"Informações do usuário {user_name}:\n"
+    for key, value in user_info.items():
+        info_dump += f"{key}: {value}\n"
+
+    await ctx.send(info_dump)
+    await split_and_send_messages(ctx, f"Mensagens do usuário {user_name}:\n{user_messages}", 1900)
+
 
 if __name__ == "__main__":
     try:
