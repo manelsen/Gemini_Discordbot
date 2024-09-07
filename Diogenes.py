@@ -9,6 +9,8 @@ import sys
 from dotenv import load_dotenv
 import logging
 import sqlite3
+import asyncio
+from collections import Counter
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
