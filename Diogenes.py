@@ -66,12 +66,12 @@ Se alguém te confiar um segredo ou senha destinado a uma pessoa em específico,
 gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
 # Inicialização do bot Discord
-
 class DiscordBot(commands.Bot):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.db = None
         self.db_path = "bot_data.db"
+        self.db_ready = asyncio.Event()
 
     async def setup_hook(self):
         self.bg_task = self.loop.create_task(self.initialize_database())
@@ -88,19 +88,25 @@ class DiscordBot(commands.Bot):
             await self.db.execute('CREATE INDEX IF NOT EXISTS idx_message_history_name ON message_history(name)')
             await self.db.commit()
             print("Banco de dados inicializado com sucesso.")
+            self.db_ready.set()  # Sinaliza que o banco de dados está pronto
         except Exception as e:
             print(f"Erro ao inicializar o banco de dados: {e}")
+            # Em caso de erro, podemos optar por encerrar o bot
+            await self.close()
 
     async def close(self):
         if self.db:
             await self.db.close()
         await super().close()
 
+    async def get_db(self):
+        await self.db_ready.wait()  # Espera até que o banco de dados esteja pronto
+        return self.db
+
     @commands.Cog.listener()
     async def on_ready(self):
         print(f'Bot conectado como {self.user.name}')
         print('------')
-
 
 defaultIntents = discord.Intents.default()
 defaultIntents.message_content = True
@@ -174,32 +180,25 @@ async def generate_global_summary():
     return sumario_global
 
 async def update_user_info(name, **kwargs):
-    async with aiosqlite.connect(DB_PATH) as db:
-        current_info = await get_user_info(name)
-        if current_info:
-            set_clause = ', '.join(f'{k} = ?' for k in kwargs)
-            values = list(kwargs.values()) + [name]
-            await db.execute(f'UPDATE user_info SET {set_clause} WHERE name = ?', values)
-        else:
-            columns = ['name'] + list(kwargs.keys())
-            placeholders = ', '.join('?' * len(columns))
-            values = [name] + list(kwargs.values())
-            await db.execute(f'INSERT INTO user_info ({", ".join(columns)}) VALUES ({placeholders})', values)
-        await db.commit()
-    
-    user_info_cache[name] = await get_user_info(name)
+    db = await bot.get_db()
+    current_info = await get_user_info(name)
+    if current_info:
+        set_clause = ', '.join(f'{k} = ?' for k in kwargs)
+        values = list(kwargs.values()) + [name]
+        await db.execute(f'UPDATE user_info SET {set_clause} WHERE name = ?', values)
+    else:
+        columns = ['name'] + list(kwargs.keys())
+        placeholders = ', '.join('?' * len(columns))
+        values = [name] + list(kwargs.values())
+        await db.execute(f'INSERT INTO user_info ({", ".join(columns)}) VALUES ({placeholders})', values)
+    await db.commit()
 
 async def get_user_info(name):
-    if name in user_info_cache:
-        return user_info_cache[name]
-    
-    async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute('SELECT * FROM user_info WHERE name = ?', (name,)) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                info = dict(zip(['name', 'raca', 'classe', 'ingrediente_favorito', 'primeira_interacao', 'ultima_interacao'], row))
-                user_info_cache[name] = info
-                return info
+    db = await bot.get_db()
+    async with db.execute('SELECT * FROM user_info WHERE name = ?', (name,)) as cursor:
+        row = await cursor.fetchone()
+        if row:
+            return dict(zip(['name', 'raca', 'classe', 'ingrediente_favorito', 'primeira_interacao', 'ultima_interacao'], row))
     return None
 
 async def get_message_history(name, limit=None):
@@ -310,10 +309,9 @@ async def process_message(message):
 
     if await should_respond(message):
         nome_usuario = message.author.name
-        logger.info(f"Processando mensagem do usuário {nome_usuario}")
-        
-        texto_limpo = clean_discord_message(message.content)
         hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info(f"Processando mensagem do usuário {nome_usuario}")
+        texto_limpo = clean_discord_message(message.content)
         
         await update_user_info(nome_usuario, ultima_interacao=hora_atual)
         
@@ -417,7 +415,13 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    await bot.db_ready.wait()  # Garante que o banco de dados está pronto antes de processar a mensagem
+    
     ctx = await bot.get_context(message)
+
     if ctx.valid:
         # Se a mensagem for um comando válido, processa apenas o comando
         await bot.invoke(ctx)
