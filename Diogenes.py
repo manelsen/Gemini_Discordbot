@@ -35,9 +35,9 @@ def ajuste_ai(tokens):
     global gemini_model
     genai.configure(api_key=GOOGLE_AI_KEY)
     text_generation_config = {
-        "temperature": 0.9,
-        "top_p": 0.9,
-        "top_k": 20,
+        "temperature": 0.7,
+        "top_p": 1.0,
+        "top_k": 40,
         "max_output_tokens": tokens,
     }
     safety_settings = [
