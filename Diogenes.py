@@ -372,25 +372,37 @@ async def on_message(message):
     else:
         # Se não for um comando, processa como uma mensagem normal
         await process_message(message)
-    
+
 @bot.command()
 @commands.check(is_voiddragon)
-async def lgpd(ctx, user: discord.User):
+async def lgpd(ctx, *, user_name: str):
     global info_usuario, historico_mensagens
-    user_name = user.name
+    
+    # Remove espaços extras e aspas, se houver
+    user_name = user_name.strip().strip('"')
 
     if user_name in info_usuario:
         del info_usuario[user_name]
+        logger.info(f"Informações do usuário {user_name} apagadas")
+    else:
+        logger.warning(f"Usuário {user_name} não encontrado em info_usuario")
+    
     if user_name in historico_mensagens:
         del historico_mensagens[user_name]
+        logger.info(f"Histórico de mensagens do usuário {user_name} apagado")
+    else:
+        logger.warning(f"Usuário {user_name} não encontrado em historico_mensagens")
 
     save_data()
     await generate_global_summary()
-    await ctx.send(f"Todas as informações e mensagens de {user_name} foram apagadas.")
+    await ctx.send(f"Todas as informações e mensagens de '{user_name}' foram apagadas.")
 
 @bot.command()
 @commands.check(is_voiddragon)
-async def dump(ctx, user_name: str):
+async def dump(ctx, *, user_name: str):
+    # Remove espaços extras e aspas, se houver
+    user_name = user_name.strip().strip('"')
+
     if user_name not in info_usuario:
         await ctx.send(f"Usuário '{user_name}' não encontrado.")
         return
@@ -404,12 +416,16 @@ async def dump(ctx, user_name: str):
 
     await ctx.send(info_dump)
     await split_and_send_messages(ctx, f"Mensagens do usuário {user_name}:\n{user_messages}", 1900)
-    
-    
+
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CheckFailure):
         await ctx.send("Você não tem permissão para usar este comando.")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Erro: Faltam argumentos. Use o formato correto do comando.")
+    else:
+        logger.error(f"Erro não tratado: {error}")
+        await ctx.send(f"Ocorreu um erro ao processar o comando: {error}")
 
 if __name__ == "__main__":
     try:
