@@ -296,18 +296,18 @@ def get_formatted_message_history(nome_usuario):
 #        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
 #    logger.info("Dados salvos com sucesso")
 
- def old_load_data():
-     global historico_mensagens, info_usuario
-     if os.path.exists('dados_bot.json'):
-         with open('dados_bot.json', 'r') as f:
-             dados = json.load(f)
-             historico_mensagens = dados.get('historico_mensagens', {})
-             info_usuario = dados.get('info_usuario', {})
-         logger.info("Dados carregados com sucesso")
-     else:
-         historico_mensagens = {}
-         info_usuario = {}
-         logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
+def old_load_data():
+    global historico_mensagens, info_usuario
+    if os.path.exists('dados_bot.json'):
+        with open('dados_bot.json', 'r') as f:
+            dados = json.load(f)
+            historico_mensagens = dados.get('historico_mensagens', {})
+            info_usuario = dados.get('info_usuario', {})
+        logger.info("Dados carregados com sucesso")
+    else:
+        historico_mensagens = {}
+        info_usuario = {}
+        logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
 
 conn = None
 
