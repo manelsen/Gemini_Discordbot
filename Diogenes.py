@@ -91,7 +91,6 @@ class DiscordBot(commands.Bot):
             self.db_ready.set()  # Sinaliza que o banco de dados está pronto
         except Exception as e:
             print(f"Erro ao inicializar o banco de dados: {e}")
-            # Em caso de erro, podemos optar por encerrar o bot
             await self.close()
 
     async def close(self):
@@ -103,10 +102,80 @@ class DiscordBot(commands.Bot):
         await self.db_ready.wait()  # Espera até que o banco de dados esteja pronto
         return self.db
 
-    @commands.Cog.listener()
     async def on_ready(self):
         print(f'Bot conectado como {self.user.name}')
         print('------')
+
+    async def on_message(self, message):
+        if message.author == self.user:
+            return
+
+        await self.db_ready.wait()  # Garante que o banco de dados está pronto antes de processar a mensagem
+
+        await self.process_message(message)
+
+    async def process_message(self, message):
+        if message.author == bot.user:
+            return
+
+        if await should_respond(message):
+            nome_usuario = message.author.name
+            hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(f"Processando mensagem do usuário {nome_usuario}")
+            texto_limpo = clean_discord_message(message.content)
+            
+            await update_user_info(nome_usuario, ultima_interacao=hora_atual)
+            
+            async with message.channel.typing():
+                info_atualizada = {}
+                if "meu nome é" in texto_limpo.lower():
+                    novo_nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0].capitalize()
+                    if novo_nome != nome_usuario:
+                        if novo_nome in info_usuario:
+                            await message.channel.send(f"Desculpe, o nome '{novo_nome}' já está em uso. Por favor, escolha outro nome.")
+                            return
+                        info_usuario[novo_nome] = info_usuario.pop(nome_usuario)
+                        nome_usuario = novo_nome
+                        logger.info(f"Usuário mudou seu nome para '{novo_nome}'")
+                if "minha raça é" in texto_limpo.lower():
+                    info_atualizada['raca'] = texto_limpo.lower().split("minha raça é")[1].strip().split()[0]
+                if "minha classe é" in texto_limpo.lower():
+                    info_atualizada['classe'] = texto_limpo.lower().split("minha classe é")[1].strip().split()[0]
+                if "meu ingrediente favorito é" in texto_limpo.lower():
+                    info_atualizada['ingrediente_favorito'] = texto_limpo.lower().split("meu ingrediente favorito é")[1].strip()
+                
+                if info_atualizada:
+                    update_user_info(nome_usuario, hora_atual, **info_atualizada)
+
+                texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
+
+                await add_message_to_history(nome_usuario, texto_limpo, True)
+                await add_message_to_history(nome_usuario, texto_resposta, False)
+                await generate_global_summary()
+
+                logger.info(f"Enviando resposta para o usuário {nome_usuario}")
+                await split_and_send_messages(message, texto_resposta, 1700)
+    async def get_user_info(self, name):
+        db = await self.get_db()
+        async with db.execute('SELECT * FROM user_info WHERE name = ?', (name,)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return dict(zip(['name', 'raca', 'classe', 'ingrediente_favorito', 'primeira_interacao', 'ultima_interacao'], row))
+        return None
+
+    async def update_user_info(self, name, **kwargs):
+        db = await self.get_db()
+        current_info = await self.get_user_info(name)
+        if current_info:
+            set_clause = ', '.join(f'{k} = ?' for k in kwargs)
+            values = list(kwargs.values()) + [name]
+            await db.execute(f'UPDATE user_info SET {set_clause} WHERE name = ?', values)
+        else:
+            columns = ['name'] + list(kwargs.keys())
+            placeholders = ', '.join('?' * len(columns))
+            values = [name] + list(kwargs.values())
+            await db.execute(f'INSERT INTO user_info ({", ".join(columns)}) VALUES ({placeholders})', values)
+        await db.commit()
 
 defaultIntents = discord.Intents.default()
 defaultIntents.message_content = True
@@ -179,27 +248,7 @@ async def generate_global_summary():
     
     return sumario_global
 
-async def update_user_info(name, **kwargs):
-    db = await bot.get_db()
-    current_info = await get_user_info(name)
-    if current_info:
-        set_clause = ', '.join(f'{k} = ?' for k in kwargs)
-        values = list(kwargs.values()) + [name]
-        await db.execute(f'UPDATE user_info SET {set_clause} WHERE name = ?', values)
-    else:
-        columns = ['name'] + list(kwargs.keys())
-        placeholders = ', '.join('?' * len(columns))
-        values = [name] + list(kwargs.values())
-        await db.execute(f'INSERT INTO user_info ({", ".join(columns)}) VALUES ({placeholders})', values)
-    await db.commit()
 
-async def get_user_info(name):
-    db = await bot.get_db()
-    async with db.execute('SELECT * FROM user_info WHERE name = ?', (name,)) as cursor:
-        row = await cursor.fetchone()
-        if row:
-            return dict(zip(['name', 'raca', 'classe', 'ingrediente_favorito', 'primeira_interacao', 'ultima_interacao'], row))
-    return None
 
 async def get_message_history(name, limit=None):
     query = 'SELECT timestamp, content, is_user FROM message_history WHERE name = ? ORDER BY timestamp DESC'
@@ -302,48 +351,6 @@ async def should_respond(message):
                 return True
     
     return False
-
-async def process_message(message):
-    if message.author == bot.user:
-        return
-
-    if await should_respond(message):
-        nome_usuario = message.author.name
-        hora_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logger.info(f"Processando mensagem do usuário {nome_usuario}")
-        texto_limpo = clean_discord_message(message.content)
-        
-        await update_user_info(nome_usuario, ultima_interacao=hora_atual)
-        
-        async with message.channel.typing():
-            info_atualizada = {}
-            if "meu nome é" in texto_limpo.lower():
-                novo_nome = texto_limpo.lower().split("meu nome é")[1].strip().split()[0].capitalize()
-                if novo_nome != nome_usuario:
-                    if novo_nome in info_usuario:
-                        await message.channel.send(f"Desculpe, o nome '{novo_nome}' já está em uso. Por favor, escolha outro nome.")
-                        return
-                    info_usuario[novo_nome] = info_usuario.pop(nome_usuario)
-                    nome_usuario = novo_nome
-                    logger.info(f"Usuário mudou seu nome para '{novo_nome}'")
-            if "minha raça é" in texto_limpo.lower():
-                info_atualizada['raca'] = texto_limpo.lower().split("minha raça é")[1].strip().split()[0]
-            if "minha classe é" in texto_limpo.lower():
-                info_atualizada['classe'] = texto_limpo.lower().split("minha classe é")[1].strip().split()[0]
-            if "meu ingrediente favorito é" in texto_limpo.lower():
-                info_atualizada['ingrediente_favorito'] = texto_limpo.lower().split("meu ingrediente favorito é")[1].strip()
-            
-            if info_atualizada:
-                update_user_info(nome_usuario, hora_atual, **info_atualizada)
-
-            texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
-
-            await add_message_to_history(nome_usuario, texto_limpo, True)
-            await add_message_to_history(nome_usuario, texto_resposta, False)
-            await generate_global_summary()
-
-            logger.info(f"Enviando resposta para o usuário {nome_usuario}")
-            await split_and_send_messages(message, texto_resposta, 1700)
 
 def update_message_history(nome_usuario, texto, eh_usuario=True):
     if nome_usuario not in historico_mensagens:
