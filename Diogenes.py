@@ -8,6 +8,7 @@ import os
 import sys
 from dotenv import load_dotenv
 import logging
+import sqlite3
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -29,44 +30,48 @@ console_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name
 logger.addHandler(console_handler)
 
 # Configuração do modelo AI
-genai.configure(api_key=GOOGLE_AI_KEY)
-text_generation_config = {
-    "temperature": 0.7,
-    "top_p": 0.9,
-    "top_k": 40,
-    "max_output_tokens": 5000,
-}
-safety_settings = [
-    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
-]
 
-gemini_system_prompt = f"""
-Seu nome é Diógenes. Você:
+def ajuste_aiai(tokens):
+    genai.configure(api_key=GOOGLE_AI_KEY)
+    text_generation_config = {
+        "temperature": 0.9,
+        "top_p": 0.9,
+        "top_k": 20,
+        "max_output_tokens": tokens,
+    }
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"}
+    ]
 
-    - formata adequadamente suas respostas, usando **este formato** para negritos e _este formato_ para itálicos.
-    - se não sabe sobre um assunto, não inventa.
-    - é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
-    - vive no mundo de Toril, na cidade de Tremond, e sonha em se tornar um Bardo da Eloquência.
-    - é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu.
-    - sabe preparar bebidas simples e complexas e pratos simples e complexos.
-    - fala com gratidão do anão Bartolomeu. Sente um pouco de saudade.
-    - fala com respeito quase reverencial do Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
-    - queria ter conhecido o Elfo Patrulheiro Arannis, o Minotauro Gladiador Miguel e o Bardo Rodolfo, todos falecidos.
-    - conhece muito da história, geografia, fauna e flora de Dungeons and Dragons.
-    - é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
-    - nunca quis ser um aventureiro, porque prefere a vida na taverna.
-    - dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação.
-    - usa respostas em prosa, alternando ações e falas.
-    - só oferece pratos e bebidas uma vez.
+    gemini_system_prompt = f"""
+    Seu nome é Diógenes. Você:
 
-Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
-Se alguém te pedir, você vai criar histórias altamente detalhadas sobre as aventuras de algum aventureiro cujo nome conheça mas não esteja na taverna naquele momento.
-O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos do pântano, da floresta e da neve. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
-"""
-gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+        - formata adequadamente suas respostas, usando **este formato** para negritos e _este formato_ para itálicos.
+        - se não sabe sobre um assunto, não inventa.
+        - é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
+        - vive no mundo de Toril, na cidade de Tremond, e sonha em se tornar um Bardo da Eloquência.
+        - é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu.
+        - sabe preparar bebidas simples e complexas e pratos simples e complexos.
+        - fala com gratidão do anão Bartolomeu. Sente um pouco de saudade.
+        - fala com respeito quase reverencial do Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
+        - queria ter conhecido o Elfo Patrulheiro Arannis, o Minotauro Gladiador Miguel e o Bardo Rodolfo, todos falecidos.
+        - conhece muito da história, geografia, fauna e flora de Dungeons and Dragons.
+        - é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
+        - nunca quis ser um aventureiro, porque prefere a vida na taverna.
+        - dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação.
+        - usa respostas em prosa, alternando ações e falas.
+        - só oferece pratos e bebidas uma vez.
+
+    Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
+    Se alguém te pedir, você vai criar histórias altamente detalhadas sobre as aventuras de algum aventureiro cujo nome conheça mas não esteja na taverna naquele momento.
+    O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos do pântano, da floresta e da neve. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
+    """
+    gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+
+ajuste_ai(500)
 
 # Inicialização do bot Discord
 defaultIntents = discord.Intents.default()
@@ -79,6 +84,7 @@ sumario_global = ""
 
 async def generate_global_summary():
     global sumario_global
+    ajuste_ai(5000)
     logger.info("Gerando sumário global das conversas")
     
     raw_summary = "Resumo de todas as conversas e preferências dos usuários:\n\n"
@@ -122,7 +128,7 @@ async def generate_global_summary():
     sumario_global = concise_summary
     
     logger.info("Sumário global gerado com sucesso")
-    
+    ajuste_ai(500)
     return sumario_global
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
@@ -283,23 +289,81 @@ def get_formatted_message_history(nome_usuario):
     else:
         return "Nenhum histórico de mensagens encontrado para este usuário."
 
+#def save_data():
+#    with open('dados_bot.json', 'w') as f:
+#        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
+#    logger.info("Dados salvos com sucesso")
+
+# def load_data():
+#     global historico_mensagens, info_usuario
+#     if os.path.exists('dados_bot.json'):
+#         with open('dados_bot.json', 'r') as f:
+#             dados = json.load(f)
+#             historico_mensagens = dados.get('historico_mensagens', {})
+#             info_usuario = dados.get('info_usuario', {})
+#         logger.info("Dados carregados com sucesso")
+#     else:
+#         historico_mensagens = {}
+#         info_usuario = {}
+#         logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
+
+conn = None
+
+def get_db_connection():
+    global conn
+    if conn is None:
+        conn = sqlite3.connect('dados_bot.db')
+        conn.execute('''CREATE TABLE IF NOT EXISTS dados
+                        (chave TEXT PRIMARY KEY, valor TEXT)''')
+    return conn
+
 def save_data():
-    with open('dados_bot.json', 'w') as f:
-        json.dump({'historico_mensagens': historico_mensagens, 'info_usuario': info_usuario}, f)
-    logger.info("Dados salvos com sucesso")
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
+    # Converter dicionários para JSON antes de salvar
+    historico_json = json.dumps(historico_mensagens)
+    info_usuario_json = json.dumps(info_usuario)
+    
+    # Inserir ou atualizar dados
+    cursor.execute("INSERT OR REPLACE INTO dados (chave, valor) VALUES (?, ?)",
+                   ("historico_mensagens", historico_json))
+    cursor.execute("INSERT OR REPLACE INTO dados (chave, valor) VALUES (?, ?)",
+                   ("info_usuario", info_usuario_json))
+    
+    connection.commit()
+    logger.info("Dados salvos com sucesso no SQLite")
 
 def load_data():
     global historico_mensagens, info_usuario
-    if os.path.exists('dados_bot.json'):
-        with open('dados_bot.json', 'r') as f:
-            dados = json.load(f)
-            historico_mensagens = dados.get('historico_mensagens', {})
-            info_usuario = dados.get('info_usuario', {})
-        logger.info("Dados carregados com sucesso")
-    else:
+    
+    if not os.path.exists('dados_bot.db'):
         historico_mensagens = {}
         info_usuario = {}
-        logger.warning("Arquivo de dados não encontrado. Iniciando com dados vazios.")
+        logger.warning("Banco de dados não encontrado. Iniciando com dados vazios.")
+        return
+    
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    
+    # Carregar dados
+    for chave in ["historico_mensagens", "info_usuario"]:
+        cursor.execute("SELECT valor FROM dados WHERE chave = ?", (chave,))
+        resultado = cursor.fetchone()
+        if resultado:
+            globals()[chave] = json.loads(resultado[0])
+        else:
+            globals()[chave] = {}
+    
+    logger.info("Dados carregados com sucesso do SQLite")
+
+# Função para fechar a conexão quando não for mais necessária
+def close_connection():
+    global conn
+    if conn:
+        conn.close()
+        conn = None
+
 
 async def split_and_send_messages(message_system, text, max_length):
     messages = []
