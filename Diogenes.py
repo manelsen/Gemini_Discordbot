@@ -214,8 +214,8 @@ async def generate_response_with_text(message_text):
 
 async def process_message(message):
     global sumario_global
-    if message.author == bot.user or message.mention_everyone or not message.author.bot:
-        return
+    
+    if message.author == bot.user or message.mention_everyone or (not message.author.bot and not isinstance(message.channel, discord.DMChannel)):        return
 
     if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
         nome_usuario = message.author.name
