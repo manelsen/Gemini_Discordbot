@@ -29,7 +29,6 @@ console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
 logger.addHandler(console_handler)
 
-
 # Configuração do modelo AI
 genai.configure(api_key=GOOGLE_AI_KEY)
 text_generation_config = {
@@ -67,6 +66,42 @@ Se alguém te confiar um segredo ou senha destinado a uma pessoa em específico,
 gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
 # Inicialização do bot Discord
+
+class DiscordBot(commands.Bot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.db = None
+        self.db_path = "bot_data.db"
+
+    async def setup_hook(self):
+        self.bg_task = self.loop.create_task(self.initialize_database())
+
+    async def initialize_database(self):
+        try:
+            self.db = await aiosqlite.connect(self.db_path)
+            await self.db.execute('''CREATE TABLE IF NOT EXISTS user_info
+                                    (name TEXT PRIMARY KEY, raca TEXT, classe TEXT, ingrediente_favorito TEXT,
+                                     primeira_interacao TEXT, ultima_interacao TEXT)''')
+            await self.db.execute('''CREATE TABLE IF NOT EXISTS message_history
+                                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                     name TEXT, timestamp TEXT, content TEXT, is_user BOOLEAN)''')
+            await self.db.execute('CREATE INDEX IF NOT EXISTS idx_message_history_name ON message_history(name)')
+            await self.db.commit()
+            print("Banco de dados inicializado com sucesso.")
+        except Exception as e:
+            print(f"Erro ao inicializar o banco de dados: {e}")
+
+    async def close(self):
+        if self.db:
+            await self.db.close()
+        await super().close()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print(f'Bot conectado como {self.user.name}')
+        print('------')
+
+
 defaultIntents = discord.Intents.default()
 defaultIntents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=defaultIntents)
@@ -427,7 +462,4 @@ async def on_command_error(ctx, error):
         await ctx.send(f"Ocorreu um erro ao processar o comando: {error}")
 
 if __name__ == "__main__":
-    try:
-        bot.run(DISCORD_BOT_TOKEN)
-    finally:
-        db.commit()
+    bot.run(DISCORD_BOT_TOKEN)
