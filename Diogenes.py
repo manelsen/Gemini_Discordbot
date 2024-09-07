@@ -71,6 +71,7 @@ def ajuste_ai(tokens):
     O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos do pântano, da floresta e da neve. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
     """
     gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+    logger.info(f"Tokens: {text_generation_config['max_output_tokens']}")
 
 ajuste_ai(500)
 
