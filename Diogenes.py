@@ -75,7 +75,7 @@ info_usuario = {}
 historico_mensagens = {}
 sumario_global = ""
 
- Cache para informações de usuário e histórico de mensagens recentes
+# Cache para informações de usuário e histórico de mensagens recentes
 user_info_cache = TTLCache(maxsize=1000, ttl=3600)  # 1 hora de TTL
 message_history_cache = TTLCache(maxsize=1000, ttl=3600)
 
