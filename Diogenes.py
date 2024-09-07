@@ -32,6 +32,7 @@ logger.addHandler(console_handler)
 # Configuração do modelo AI
 
 def ajuste_ai(tokens):
+    global gemini_model
     genai.configure(api_key=GOOGLE_AI_KEY)
     text_generation_config = {
         "temperature": 0.9,
@@ -69,7 +70,7 @@ def ajuste_ai(tokens):
     Se alguém te pedir, você vai criar histórias altamente detalhadas sobre as aventuras de algum aventureiro cujo nome conheça mas não esteja na taverna naquele momento.
     O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos do pântano, da floresta e da neve. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
     """
-    global gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
+    gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
 
 ajuste_ai(500)
 
