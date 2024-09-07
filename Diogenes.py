@@ -131,7 +131,7 @@ async def generate_global_summary():
     sumario_global = concise_summary
     
     logger.info("Sumário global gerado com sucesso")
-    ajuste_ai(500)
+    ajuste_ai(256)
     return sumario_global
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
