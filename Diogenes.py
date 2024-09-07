@@ -231,7 +231,6 @@ async def should_respond(message):
     return False
 
 async def process_message(message):
-    global sumario_global
     if message.author == bot.user:
         return
 
@@ -366,8 +365,13 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    await bot.process_commands(message)  # Processa comandos primeiro
-    await process_message(message)  # Processa a mensagem em seguida
+    ctx = await bot.get_context(message)
+    if ctx.valid:
+        # Se a mensagem for um comando válido, processa apenas o comando
+        await bot.invoke(ctx)
+    else:
+        # Se não for um comando, processa como uma mensagem normal
+        await process_message(message)
     
 @bot.command()
 @commands.check(is_voiddragon)
