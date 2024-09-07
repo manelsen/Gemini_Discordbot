@@ -36,8 +36,8 @@ def ajuste_ai(tokens):
     genai.configure(api_key=GOOGLE_AI_KEY)
     text_generation_config = {
         "temperature": 0.7,
-        "top_p": 1.0,
-        "top_k": 40,
+        "top_p": 0.9,
+        "top_k": 50,
         "max_output_tokens": tokens,
     }
     safety_settings = [
@@ -89,47 +89,56 @@ async def generate_global_summary():
     global gemini_model
     ajuste_ai(5000)
     logger.info("Gerando sumário global das conversas")
-    
-    raw_summary = "Resumo de todas as conversas e preferências dos usuários:\n\n"
-    
-    for nome, dados in info_usuario.items():
-        raw_summary += f"Usuário: {nome}\n"
-        raw_summary += f"Raça: {dados['raca']}, Classe: {dados['classe']}, Favorito: {dados['ingrediente_favorito']}\n"
-        raw_summary += f"Primeira interação: {dados['primeira_interacao']}, Última: {dados['ultima_interacao']}\n"
+   
+    async def process_user(nome, dados):
+        user_summary = f"Usuário: {nome}\n"
+        user_summary += f"Raça: {dados['raca']}, Classe: {dados['classe']}, Favorito: {dados['ingrediente_favorito']}\n"
         
         if nome in historico_mensagens:
             ultimas_mensagens = historico_mensagens[nome][-15:]  # Últimas 15 mensagens
-            raw_summary += "Últimas interações:\n"
-            for msg in ultimas_mensagens:
-                raw_summary += f"- {msg}\n"  # Mensagem completa
+            user_summary += "Últimas interações:\n"
+            user_summary += "\n".join(f"- {msg}" for msg in ultimas_mensagens)
         
-        raw_summary += "\n"
+        return user_summary
+
+    # Processar usuários de forma assíncrona
+    user_summaries = await asyncio.gather(
+        *(process_user(nome, dados) for nome, dados in info_usuario.items())
+    )
     
-    # Usando generate_response_with_text para criar um resumo
+    raw_summary = "Resumo de todas as conversas e preferências dos usuários:\n\n"
+    raw_summary += "\n\n".join(user_summaries)
+
+    # Análise de interações frequentes
+    all_interactions = [msg for user_msgs in historico_mensagens.values() for msg in user_msgs]
+    frequent_interactions = Counter(all_interactions).most_common(5)
+    
     prompt = f"""
     Crie um resumo objetivo do seguinte sumário de conversas:
-
     {raw_summary}
-
-    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e informações relavantes sobre cada usuário, sem exceção de nenhum. Nenhum timestamp deverá aparecer nesse resumo. Organize por bullets.
     
+    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e informações relevantes sobre cada usuário, sem exceção de nenhum. Nenhum timestamp deverá aparecer nesse resumo. Organize por bullets.
+   
     O padrão a seguir é:
-    
+   
     *Usuário*:
-    * Raça: 
-    * Classe: 
+    * Raça:
+    * Classe:
     * Cinco pessoas com quem mais interage:
-    * Ingrediente Favorito: 
-    * Lista de Interações: 
+    * Ingrediente Favorito:
+    * Lista de Interações:
     ** interação importante resumida 1
     ** interação importante resumida 2
     ** interação importante resumida 3
     ** etc
-"""
+
+    Adicione também uma seção no final com as 5 interações mais frequentes em todo o sistema:
+    {frequent_interactions}
+    """
 
     concise_summary = await generate_response_with_text(prompt)
     sumario_global = concise_summary
-    
+   
     logger.info("Sumário global gerado com sucesso")
     ajuste_ai(200)
     return sumario_global
