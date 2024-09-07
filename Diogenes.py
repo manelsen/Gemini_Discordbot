@@ -29,7 +29,6 @@ console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s"))
 logger.addHandler(console_handler)
 
-
 # Configuração do modelo AI
 genai.configure(api_key=GOOGLE_AI_KEY)
 text_generation_config = {
@@ -102,7 +101,7 @@ async def generate_global_summary():
 
     {raw_summary}
 
-    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e informações relavantes sobre cada usuário, sem exceção de nenhum. Organize por bullets.
+    Esse resumo deve incluir nome, raça, classe, ingrediente favorito e informações relavantes sobre cada usuário, sem exceção de nenhum. Nenhum timestamp deverá aparecer nesse resumo. Organize por bullets.
     
     O padrão a seguir é:
     
@@ -112,9 +111,9 @@ async def generate_global_summary():
     * Cinco pessoas com quem mais interage:
     * Ingrediente Favorito: 
     * Lista de Interações: 
-    ** interação importante 1
-    ** interação importante 2
-    ** interação importante 3
+    ** interação importante resumida 1
+    ** interação importante resumida 2
+    ** interação importante resumida 3
     ** etc
 """
 
