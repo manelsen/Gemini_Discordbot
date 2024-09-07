@@ -31,7 +31,7 @@ logger.addHandler(console_handler)
 
 # Configuração do modelo AI
 
-def ajuste_aiai(tokens):
+def ajuste_ai(tokens):
     genai.configure(api_key=GOOGLE_AI_KEY)
     text_generation_config = {
         "temperature": 0.9,
