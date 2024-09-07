@@ -73,7 +73,7 @@ def ajuste_ai(tokens):
     gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
     logger.info(f"Tokens: {text_generation_config['max_output_tokens']}")
 
-ajuste_ai(500)
+ajuste_ai(256)
 
 # Inicialização do bot Discord
 defaultIntents = discord.Intents.default()
