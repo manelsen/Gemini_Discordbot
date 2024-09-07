@@ -420,22 +420,6 @@ async def on_ready():
     logger.info("----------------------------------------")
     # await generate_global_summary()  # Isso exibirá o sumário inicial
 
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
-
-    await bot.db_ready.wait()  # Garante que o banco de dados está pronto antes de processar a mensagem
-    
-    ctx = await bot.get_context(message)
-
-    if ctx.valid:
-        # Se a mensagem for um comando válido, processa apenas o comando
-        await bot.invoke(ctx)
-    else:
-        # Se não for um comando, processa como uma mensagem normal
-        await process_message(message)
-
 @bot.command()
 @commands.check(is_voiddragon)
 async def lgpd(ctx, *, user_name: str):
