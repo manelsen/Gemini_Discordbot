@@ -349,7 +349,8 @@ def load_data():
     if not os.path.exists('dados_bot.db'):
         historico_mensagens = {}
         info_usuario = {}
-        logger.warning("Banco de dados não encontrado. Iniciando com dados vazios.")
+        logger.warning("Banco de dados não encontrado. Acionando backup.")
+        old_load_data()
         return
     
     connection = get_db_connection()
