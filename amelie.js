@@ -28,11 +28,20 @@ const logger = winston.createLogger({
 // Configuração do NeDB
 const messagesDb = new Datastore({ filename: 'messages.db', autoload: true });
 const promptsDb = new Datastore({ filename: 'prompts.db', autoload: true });
+const configDb = new Datastore({ filename: 'config.db', autoload: true });
 
 // Configuração da IA do Google
 const genAI = new GoogleGenerativeAI(GOOGLE_AI_KEY);
 const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 const imageModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+// Configuração padrão
+const defaultConfig = {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 1024,
+};
 
 // Configuração do cliente WhatsApp
 const client = new Client({
@@ -108,11 +117,16 @@ async function handleCommand(msg) {
                 '!prompt get <nome> - Mostra um system prompt existente\n' +
                 '!prompt list - Lista todos os system prompts\n' +
                 '!prompt use <nome> - Usa um system prompt específico\n' +
+                '!config set <param> <valor> - Define um parâmetro de configuração\n' +
+                '!config get [param] - Mostra a configuração atual\n' +
                 '!help - Mostra esta mensagem de ajuda'
             );
             break;
         case 'prompt':
             await handlePromptCommand(msg, args);
+            break;
+        case 'config':
+            await handleConfigCommand(msg, args);
             break;
         default:
             await msg.reply('Comando desconhecido. Use !help para ver os comandos disponíveis.');
@@ -170,6 +184,48 @@ async function handlePromptCommand(msg, args) {
     }
 }
 
+async function handleConfigCommand(msg, args) {
+    const [subcommand, param, value] = args;
+    const userId = msg.from;
+
+    switch (subcommand) {
+        case 'set':
+            if (param && value) {
+                if (['temperature', 'topK', 'topP', 'maxOutputTokens'].includes(param)) {
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                        await setConfig(userId, param, numValue);
+                        await msg.reply(`Parâmetro ${param} definido como ${numValue}`);
+                    } else {
+                        await msg.reply(`Valor inválido para ${param}. Use um número.`);
+                    }
+                } else {
+                    await msg.reply(`Parâmetro desconhecido: ${param}`);
+                }
+            } else {
+                await msg.reply('Uso correto: !config set <param> <valor>');
+            }
+            break;
+        case 'get':
+            const config = await getConfig(userId);
+            if (param) {
+                if (config.hasOwnProperty(param)) {
+                    await msg.reply(`${param}: ${config[param]}`);
+                } else {
+                    await msg.reply(`Parâmetro desconhecido: ${param}`);
+                }
+            } else {
+                const configString = Object.entries(config)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join('\n');
+                await msg.reply(`Configuração atual:\n${configString}`);
+            }
+            break;
+        default:
+            await msg.reply('Subcomando de config desconhecido. Use !help para ver os comandos disponíveis.');
+    }
+}
+
 async function handleTextMessage(msg) {
     try {
         const history = await getMessageHistory(msg.from);
@@ -178,7 +234,7 @@ async function handleTextMessage(msg) {
         const systemPromptText = activePrompt ? activePrompt.text : "";
         const userPromptText = history.join('\n\n') + '\n\n' + msg.body;
         
-        const response = await generateResponseWithText(systemPromptText, userPromptText);
+        const response = await generateResponseWithText(systemPromptText, userPromptText, msg.from);
         
         await updateMessageHistory(msg.from, msg.body, response);
         await sendLongMessage(msg, response);
@@ -199,20 +255,16 @@ async function handleImageMessage(msg, imageData) {
     }
 }
 
-async function generateResponseWithText(systemPrompt, userPrompt) {
+async function generateResponseWithText(systemPrompt, userPrompt, userId) {
     try {
+        const config = await getConfig(userId);
         const result = await textModel.generateContent({
             contents: [
                 { role: "user", parts: [{ text: systemPrompt }] },
                 { role: "model", parts: [{ text: "Entendido. Vou seguir essas instruções." }] },
                 { role: "user", parts: [{ text: userPrompt }] }
             ],
-            generationConfig: {
-                temperature: 0.7,
-                topK: 40,
-                topP: 0.95,
-                maxOutputTokens: 1024,
-            },
+            generationConfig: config,
         });
         return result.response.text();
     } catch (error) {
@@ -330,6 +382,29 @@ function getActiveSystemPrompt(userId) {
             } else {
                 resolve(null);
             }
+        });
+    });
+}
+
+function setConfig(userId, param, value) {
+    return new Promise((resolve, reject) => {
+        configDb.update(
+            { userId },
+            { $set: { [param]: value } },
+            { upsert: true },
+            (err) => {
+                if (err) reject(err);
+                else resolve();
+            }
+        );
+    });
+}
+
+async function getConfig(userId) {
+    return new Promise((resolve, reject) => {
+        configDb.findOne({ userId }, (err, doc) => {
+            if (err) reject(err);
+            else resolve({ ...defaultConfig, ...(doc || {}) });
         });
     });
 }
