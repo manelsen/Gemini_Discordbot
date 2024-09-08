@@ -10,7 +10,7 @@ dotenv.config();
 // Configuração de variáveis de ambiente
 const GOOGLE_AI_KEY = process.env.GOOGLE_AI_KEY;
 const MAX_HISTORY = parseInt(process.env.MAX_HISTORY || '500');
-const BOT_NAME = process.env.BOT_NAME || 'Bot';
+const BOT_NAME = process.env.BOT_NAME || 'Amelie';
 
 // Configuração do logger
 const logger = winston.createLogger({
