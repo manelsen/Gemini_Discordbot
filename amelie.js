@@ -334,10 +334,25 @@ function getActiveSystemPrompt(userId) {
     });
 }
 
-async function sendLongMessage(msg, text, maxLength = 1600) {
-    const chunks = text.match(new RegExp(`.{1,${maxLength}}`, 'g')) || [];
-    for (const chunk of chunks) {
-        await msg.reply(chunk);
+async function sendLongMessage(msg, text) {
+    try {
+        // Remove qualquer quebra de linha extra no início ou fim do texto
+        let trimmedText = text.trim();
+        
+        // Substitui todas as ocorrências de CRLF (\r\n) por LF (\n)
+        trimmedText = trimmedText.replace(/\r\n/g, '\n');
+        
+        // Substitui quaisquer CRs (\r) remanescentes por LFs (\n)
+        trimmedText = trimmedText.replace(/\r/g, '\n');
+        
+        // Remove quaisquer linhas em branco extras
+        trimmedText = trimmedText.replace(/\n{3,}/g, '\n\n');
+        
+        // Envia todo o texto como uma única mensagem
+        await msg.reply(trimmedText);
+    } catch (error) {
+        logger.error('Erro ao enviar mensagem:', error);
+        await msg.reply('Desculpe, ocorreu um erro ao enviar a resposta. Por favor, tente novamente.');
     }
 }
 
