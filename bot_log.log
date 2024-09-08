@@ -1,0 +1,74 @@
+2024-09-07 23:52:56,761:INFO:bot_logger: Tokens: 2000
+2024-09-07 23:52:59,809:INFO:bot_logger: ----------------------------------------
+2024-09-07 23:52:59,809:INFO:bot_logger: Gemini Bot Logged in as Diógenes#2383
+2024-09-07 23:52:59,810:INFO:bot_logger: ----------------------------------------
+2024-09-07 23:52:59,810:WARNING:bot_logger: Banco de dados não encontrado. Acionando backup.
+2024-09-07 23:52:59,811:WARNING:bot_logger: Arquivo de dados não encontrado. Iniciando com dados vazios.
+2024-09-07 23:53:36,075:INFO:bot_logger: Processando mensagem do usuário Micélio
+2024-09-07 23:53:36,076:DEBUG:bot_logger: Atualizando informações para o usuário Micélio
+2024-09-07 23:53:36,076:INFO:bot_logger: Novo usuário criado: Micélio
+2024-09-07 23:53:36,083:INFO:bot_logger: Dados salvos com sucesso no SQLite
+2024-09-07 23:53:36,357:DEBUG:bot_logger: Gerando resposta para o usuário Micélio
+2024-09-07 23:53:36,358:DEBUG:bot_logger: Recuperando informações do usuário Micélio
+2024-09-07 23:53:36,358:DEBUG:bot_logger: Dados recuperados para Micélio: {'nome': 'Micélio', 'primeira_interacao': '2024-09-07 23:53:36', 'ultima_interacao': '2024-09-07 23:53:36', 'raca': 'Desconhecida', 'classe': 'Desconhecida', 'ingrediente_favorito': 'Desconhecido'}
+2024-09-07 23:53:36,358:DEBUG:bot_logger: Contexto gerado para o usuário Micélio
+2024-09-07 23:53:37,870:INFO:bot_logger: Atravesso a cozinha da Taverna do Cavalo Manco, esquivando-me dos aromas picantes do Estrogonofe de Grifos. "Boa noite, Micélio! Que bom te ver por aqui! Como está sua noite?" 
+
+2024-09-07 23:53:37,881:INFO:bot_logger: Dados salvos com sucesso no SQLite
+2024-09-07 23:53:37,884:INFO:bot_logger: Dados salvos com sucesso no SQLite
+2024-09-07 23:53:37,886:INFO:bot_logger: Tokens: 5000
+2024-09-07 23:53:37,887:INFO:bot_logger: Gerando sumário global das conversas
+2024-09-07 23:53:40,344:INFO:bot_logger: Com um movimento elegante e ágil, me levanto da cadeira de madeira maciça e me espreguiço, esticando minhas patas escamosas. O cheiro de Estrogonofe de Grifos ainda paira no ar, delicioso e inebriante. "Que tarefa ímpia! Desvendar o mistério das conversas dos frequentadores da taverna... ", murmuro enquanto organizo meus pensamentos.  Deixando meus devaneios de lado, componho-me e me dedico à tarefa que me foi confiada.
+
+* **Micélio**:
+    * Raça: Desconhecida
+    * Classe: Desconhecida
+    * Cinco pessoas com quem mais interage: **Desconhecido**, pois somente uma interação foi registrada. 
+    * Ingrediente Favorito: **Desconhecido** 
+    * Lista de Interações:
+        **  Micélio cumprimenta Diógenes com um "boa noite". 
+        ** Diógenes responde à saudação,  mostrando-se contente com a presença do mago na taverna.  
+
+2024-09-07 23:53:40,353:INFO:bot_logger: Sumário global gerado com sucesso
+2024-09-07 23:53:40,358:INFO:bot_logger: Tokens: 2000
+2024-09-07 23:53:40,358:INFO:bot_logger: Enviando resposta para o usuário Micélio
+2024-09-07 23:54:07,955:INFO:bot_logger: Processando mensagem do usuário voiddragon
+2024-09-07 23:54:07,956:DEBUG:bot_logger: Atualizando informações para o usuário voiddragon
+2024-09-07 23:54:07,956:INFO:bot_logger: Novo usuário criado: voiddragon
+2024-09-07 23:54:07,967:INFO:bot_logger: Dados salvos com sucesso no SQLite
+2024-09-07 23:54:08,174:DEBUG:bot_logger: Gerando resposta para o usuário voiddragon
+2024-09-07 23:54:08,174:DEBUG:bot_logger: Recuperando informações do usuário voiddragon
+2024-09-07 23:54:08,175:DEBUG:bot_logger: Dados recuperados para voiddragon: {'nome': 'voiddragon', 'primeira_interacao': '2024-09-07 23:54:07', 'ultima_interacao': '2024-09-07 23:54:07', 'raca': 'Desconhecida', 'classe': 'Desconhecida', 'ingrediente_favorito': 'Desconhecido'}
+2024-09-07 23:54:08,175:DEBUG:bot_logger: Contexto gerado para o usuário voiddragon
+2024-09-07 23:54:09,903:INFO:bot_logger: Com um sorriso que se estende até os meus olhos, aceno em resposta à saudação, o rabo balançando levemente. "Boa noite, voiddragon! Que a noite seja repleta de alegrias e que a taverna lhe traga conforto e companhia! Deseja saborear um bom prato? Temos hoje um suculento Estrogonofe de Grifos e um delicioso Ensopado de Acromântula..." 
+
+2024-09-07 23:54:09,908:INFO:bot_logger: Dados salvos com sucesso no SQLite
+2024-09-07 23:54:09,912:INFO:bot_logger: Dados salvos com sucesso no SQLite
+2024-09-07 23:54:09,913:INFO:bot_logger: Tokens: 5000
+2024-09-07 23:54:09,913:INFO:bot_logger: Gerando sumário global das conversas
+2024-09-07 23:54:12,490:INFO:bot_logger: Com um sorriso afetuoso e uma pitada de saudade do meu amigo Bartolomeu, me aproximo da mesa do depósito para reunir os ingredientes necessários para a refeição da noite. 
+
+* **Micélio**:
+    * Raça: Desconhecida
+    * Classe: Desconhecida
+    * Cinco pessoas com quem mais interage: Desconhecido
+    * Ingrediente Favorito: Desconhecido
+    * Lista de Interações:
+        ** Micélio deseja boa noite.
+        ** Diógenes deseja boa noite a Micélio e o convida a se juntar à Taverna.
+* **voiddragon**:
+    * Raça: Desconhecida
+    * Classe: Desconhecida
+    * Cinco pessoas com quem mais interage: Desconhecido
+    * Ingrediente Favorito: Desconhecido
+    * Lista de Interações:
+        ** voiddragon deseja boa noite.
+        ** Diógenes deseja boa noite a voiddragon e o convida a experimentar os pratos da Taverna. 
+
+2024-09-07 23:54:12,493:INFO:bot_logger: Sumário global gerado com sucesso
+2024-09-07 23:54:12,494:INFO:bot_logger: Tokens: 2000
+2024-09-07 23:54:12,494:INFO:bot_logger: Enviando resposta para o usuário voiddragon
+2024-09-07 23:54:21,679:INFO:bot_logger: Buscando user vooi
+2024-09-07 23:54:28,175:INFO:bot_logger: Buscando user Micélio
+2024-09-07 23:55:52,863:INFO:bot_logger: Buscando user voaia
+2024-09-07 23:59:19,908:INFO:bot_logger: Dados salvos com sucesso no SQLite

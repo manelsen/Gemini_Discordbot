@@ -424,8 +424,12 @@ def find_user_by_name(name):
 async def dump_user_data(user_name):
     logger.info(f"Buscando user {user_name}")
     user_id = find_user_by_name(user_name)
-    if not user_id:
-        return f"Usuário '{user_name}' não encontrado."
+    if user_id is None:
+        # Tenta buscar diretamente pelo nome do usuário
+        user_id = user_name if user_name in info_usuario else None
+    
+    if user_id is None:
+        return f"Usuário '{user_name}' não encontrado. Usuários disponíveis: {', '.join(info_usuario.keys())}"
     
     user_info = info_usuario.get(user_id, {})
     user_messages = historico_mensagens.get(user_id, [])
@@ -435,7 +439,7 @@ async def dump_user_data(user_name):
         formatted_info += f"{key.capitalize()}: {value}\n"
     
     formatted_messages = "\nHistórico de mensagens:\n"
-    for message in user_messages:
+    for message in user_messages[-10:]:  # Mostra apenas as últimas 10 mensagens
         formatted_messages += f"{message}\n"
     
     return formatted_info + formatted_messages
@@ -474,26 +478,45 @@ async def on_message(message):
         return
 
     if message.content.startswith('!'):
-        await bot.process_commands(message)
-        if message.content.startswith('!dump') or message.content.startswith('!lgpd'):
-            parts = message.content.split(maxsplit=1)
-            if len(parts) != 2:
-                await message.channel.send("Por favor, forneça o nome do usuário. Exemplo: !dump NomeDoUsuario")
+        parts = message.content.split(maxsplit=1)
+        if len(parts) != 2:
+            await message.channel.send("Por favor, forneça o nome do usuário. Exemplo: !dump NomeDoUsuario ou !lgpd NomeDoUsuario")
+            return
+        
+        command, user_name = parts
+        
+        if command == '!dump':
+            response = await dump_user_data(user_name)
+        elif command == '!lgpd':
+            if message.author.name.lower() != "voiddragon":
+                await message.channel.send("Apenas o usuário 'voiddragon' pode executar o comando !lgpd.")
                 return
-            
-            command, user_name = parts
-            
-            if command == '!dump':
-                response = await dump_user_data(user_name)
-            else:  # !lgpd
-                if message.author.name.lower() != "voiddragon":
-                    await message.channel.send("Apenas o usuário 'voiddragon' pode executar o comando !lgpd.")
-                    return
-                response = await delete_user_data(user_name)
-            
-            await split_and_send_messages(message, response, 1900)
+            response = await delete_user_data(user_name)
+        else:
+            await bot.process_commands(message)
+            return
+        
+        await split_and_send_messages(message, response, 1900)
     else:
         await process_message(message)
+
+async def delete_user_data(user_name):
+    logger.info(f"Tentando deletar dados do usuário {user_name}")
+    user_id = find_user_by_name(user_name)
+    if user_id is None:
+        # Tenta buscar diretamente pelo nome do usuário
+        user_id = user_name if user_name in info_usuario else None
+    
+    if user_id is None:
+        return f"Usuário '{user_name}' não encontrado. Usuários disponíveis: {', '.join(info_usuario.keys())}"
+    
+    if user_id in info_usuario:
+        del info_usuario[user_id]
+    if user_id in historico_mensagens:
+        del historico_mensagens[user_id]
+    save_data()
+    return f"Todas as informações e mensagens do usuário '{user_name}' foram eliminadas."
+
 
 if __name__ == "__main__":
     try:
