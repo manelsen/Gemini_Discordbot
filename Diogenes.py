@@ -19,7 +19,7 @@ MAX_HISTORY = int(os.getenv("MAX_HISTORY"))
 
 # Configuração do logger
 logger = logging.getLogger("bot_logger")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Handler para arquivo
 file_handler = logging.FileHandler(filename="bot_log.log", encoding="utf-8", mode="a")
@@ -73,7 +73,7 @@ def ajuste_ai(tokens):
     IMPORTANTE: Suas respostas devem ser sempre únicas e criativas, sem repetir o início da mensagem anterior ou da pergunta do usuário
     """
     gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
-    logger.info(f"Tokens: {text_generation_config['max_output_tokens']}")
+    logger.debug(f"Tokens: {text_generation_config['max_output_tokens']}")
 
 ajuste_ai(2000)
 
@@ -226,7 +226,7 @@ async def generate_response_with_text(message_text):
         if response._error:
             logger.error(str(response._error))
             return "❌" + str(response._error)
-        logger.info(response.text)
+        logger.debug(response.text)
         return response.text
     except Exception as e:
         logger.error(str(e))
@@ -458,11 +458,8 @@ async def delete_user_data(user_name):
 
 @bot.event
 async def on_ready():
-    logger.info("----------------------------------------")
-    logger.info(f'Gemini Bot Logged in as {bot.user}')
-    logger.info("----------------------------------------")
+    logger.info(f'Diógenes Logado como {bot.user}')
     load_data()
-    # await generate_global_summary()  # Isso exibirá o sumário inicial
 
 @bot.command(name='shutdown')
 async def shutdown(ctx):
