@@ -133,6 +133,14 @@ function resetSessionAfterInactivity(userId, inactivityPeriod = 3600000) { // 1 
     }, inactivityPeriod);
 }
 
+function resetSessionAfterInactivity(userId, inactivityPeriod = 3600000) { // 1 hora
+    setTimeout(() => {
+        userSessions.delete(userId);
+    }, inactivityPeriod);
+}
+
+client.initialize();
+
 // Chame esta função após cada mensagem processada
 resetSessionAfterInactivity(msg.from);
 
@@ -262,15 +270,31 @@ async function handleConfigCommand(msg, args) {
 
 async function handleTextMessage(msg) {
     try {
-        const history = await getMessageHistory(msg.from);
-        const activePrompt = await getActiveSystemPrompt(msg.from);
+        const userId = msg.from;
+        let session = userSessions.get(userId);
+        
+        if (!session) {
+            session = { introductionGiven: false };
+            userSessions.set(userId, session);
+        }
+
+        let response = '';
+        
+        if (!session.introductionGiven) {
+            response += "Olá! 😊 Sou a Dra. Amelie, uma androide programada para oferecer apoio e suporte a pessoas neurodivergentes. Estou aqui para te ouvir, te ajudar e te dar um abraço virtual se precisar. 🤗\n\n";
+            session.introductionGiven = true;
+        }
+
+        const history = await getMessageHistory(userId);
+        const activePrompt = await getActiveSystemPrompt(userId);
         
         const systemPromptText = activePrompt ? activePrompt.text : "";
         const userPromptText = history.join('\n\n') + '\n\n' + msg.body;
         
-        const response = await generateResponseWithText(systemPromptText, userPromptText, msg.from);
+        const specificResponse = await generateResponseWithText(systemPromptText, userPromptText, userId);
+        response += specificResponse;
         
-        await updateMessageHistory(msg.from, msg.body, response);
+        await updateMessageHistory(userId, msg.body, response);
         await sendLongMessage(msg, response);
     } catch (error) {
         logger.error('Erro ao processar mensagem de texto:', error);
