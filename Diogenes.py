@@ -135,7 +135,7 @@ async def generate_global_summary():
     concise_summary = await generate_response_with_text(prompt)
     sumario_global = concise_summary
    
-    logger.info("Sumário global gerado com sucesso")
+    logger.debug("Sumário global gerado com sucesso")
     ajuste_ai(2000)
     return sumario_global
 
@@ -341,7 +341,7 @@ def save_data():
                    ("info_usuario", info_usuario_json))
     
     connection.commit()
-    logger.info("Dados salvos com sucesso no SQLite")
+    logger.debug("Dados salvos com sucesso no SQLite")
 
 def load_data():
     global historico_mensagens, info_usuario
