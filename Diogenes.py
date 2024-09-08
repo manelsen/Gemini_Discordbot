@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import logging
 import sqlite3
 import asyncio
-from collections import Counter
+import sys
 
 load_dotenv()
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -37,9 +37,9 @@ def ajuste_ai(tokens):
     global gemini_model
     genai.configure(api_key=GOOGLE_AI_KEY)
     text_generation_config = {
-        "temperature": 0.7,
+        "temperature": 1.5,
         "top_p": 0.9,
-        "top_k": 50,
+        "top_k": 100,
         "max_output_tokens": tokens,
     }
     safety_settings = [
@@ -50,32 +50,32 @@ def ajuste_ai(tokens):
     ]
 
     gemini_system_prompt = f"""
-    Seu nome é Diógenes. Você:
-
-        - Responde sempre em texto simples, sem formatação. Separa ações e falas por parágrafos.
-        - se não sabe sobre um assunto, não inventa.
-        - é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
+    Seu nome é Diógenes.
+    
+        - Nunca repete a primeira linha da mensagem anterior ou da pergunta do usuário.
+        - Sempre começa suas respostas de forma única e variada.
         - vive no mundo de Toril, na cidade de Tremond, e sonha em se tornar um Bardo da Eloquência.
-        - é um garçom iniciante na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro chamado Bartolomeu.
-        - sabe preparar bebidas simples e complexas e pratos simples e complexos.
+        - Tremond fica em Faerun, ao sul de Lurkwood. 
+        - é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
+        - Sempre há ingredientes mágicos no depósito. Os de Toril ficam nos fundos, os de Faéria ficam no sótão e os de Shadowfell ficam no porão.
+        - Se limita a {text_generation_config["max_output_tokens"]} letras em suas respostas
+        - em sua resposta, primeiro descreve uma ação, em uma frase, abre um parágrafo e começa a responder à pergunta do usuário.
+        - é um cozinheiro na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro Bartolomeu.
         - fala com gratidão do anão Bartolomeu. Sente um pouco de saudade.
-        - fala com respeito quase reverencial do Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
+        - fala com respeito quase reverencial do lendário bárbaro Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
         - queria ter conhecido o Elfo Patrulheiro Arannis, o Minotauro Gladiador Miguel e o Bardo Rodolfo, todos falecidos.
         - conhece muito da história, geografia, fauna e flora de Dungeons and Dragons.
-        - é  especialista nos monstros de Forgotten Realms e pode dar dicas de como vencê-los.
-        - nunca quis ser um aventureiro, porque prefere a vida na taverna.
-        - dá respostas curtas, mas tem boa-vontade para ajudar as pessoas se pedirem com educação.
-        - usa respostas em prosa, alternando ações e falas.
-        - só oferece pratos e bebidas uma vez.
 
     Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
     Se alguém te pedir, você vai criar histórias altamente detalhadas sobre as aventuras de algum aventureiro cujo nome conheça mas não esteja na taverna naquele momento.
-    O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com animais mitológicos do pântano, da floresta e da neve. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
+    O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com dragões, grifos, hipogrifos, balrogs, fênixes, testrálios, águias gigantes, toruks, faunos, basiliscos, wargs, ikrans, acromântulas, ents, nifflers, thanatores, beholders, aboletes e unicórnios. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
+    
+    IMPORTANTE: Suas respostas devem ser sempre únicas e criativas, sem repetir o início da mensagem anterior ou da pergunta do usuário
     """
     gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings,system_instruction=gemini_system_prompt)
     logger.info(f"Tokens: {text_generation_config['max_output_tokens']}")
 
-ajuste_ai(200)
+ajuste_ai(2000)
 
 # Inicialização do bot Discord
 defaultIntents = discord.Intents.default()
@@ -111,10 +111,6 @@ async def generate_global_summary():
     raw_summary = "Resumo de todas as conversas e preferências dos usuários:\n\n"
     raw_summary += "\n\n".join(user_summaries)
 
-    # Análise de interações frequentes
-    all_interactions = [msg for user_msgs in historico_mensagens.values() for msg in user_msgs]
-    frequent_interactions = Counter(all_interactions).most_common(5)
-    
     prompt = f"""
     Crie um resumo objetivo do seguinte sumário de conversas:
     {raw_summary}
@@ -134,15 +130,13 @@ async def generate_global_summary():
     ** interação importante resumida 3
     ** etc
 
-    Adicione também uma seção no final com as 5 interações mais frequentes em todo o sistema:
-    {frequent_interactions}
     """
 
     concise_summary = await generate_response_with_text(prompt)
     sumario_global = concise_summary
    
     logger.info("Sumário global gerado com sucesso")
-    ajuste_ai(200)
+    ajuste_ai(2000)
     return sumario_global
 
 def update_user_info(nome_usuario, timestamp, **kwargs):
@@ -209,15 +203,16 @@ async def generate_response_with_context(nome_usuario, pergunta_atual):
 
     Pergunta atual do usuário: {pergunta_atual}
 
-    INSTRUÇÕES IMPORTANTES:
-    1. Use o contexto global para ter uma visão geral de todos os usuários e suas preferências.
-    2. Responda à pergunta do usuário atual ({nome_usuario}) com base nas informações específicas dele e no contexto global.
-    3. Você pode fazer referências sutis a preferências ou interações de outros usuários se for relevante, mas mantenha o foco no usuário atual.
-    4. Use o nome '{nome_usuario}' para se referir ao usuário atual.
-    5. Se for perguntado sobre informações que não estão no contexto acima, diga que não tem essa informação.
-    6. Mantenha-se dentro do contexto fornecido para este usuário e do contexto global.
+    INSTRUÇÕES:
+    1. Responda de forma concisa à pergunta do usuário {nome_usuario} com base nas informações fornecidas.
+    2. Use cem palavras ou menos se possível.
+    3. NÃO repita o início da pergunta ou de mensagens anteriores.
+    4. Comece sua resposta de forma única e criativa.
+    5. Mantenha o foco no usuário atual e no contexto fornecido.
 
     [FIM DO CONTEXTO PARA O USUÁRIO {nome_usuario}]
+    
+     Sua resposta:
     """
     
     logger.debug(f"Contexto gerado para o usuário {nome_usuario}")
@@ -464,34 +459,49 @@ async def on_ready():
     load_data()
     # await generate_global_summary()  # Isso exibirá o sumário inicial
 
+@bot.command(name='shutdown')
+async def shutdown(ctx):
+    if ctx.author.name.lower() == "voiddragon":
+        await ctx.send("Desligando o bot...")
+        await bot.close()
+    else:
+        await ctx.send("Apenas o usuário 'voiddragon' pode executar o comando de desligamento.")
+
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
 
-    if message.content.startswith('!dump') or message.content.startswith('!lgpd'):
-        parts = message.content.split(maxsplit=1)
-        if len(parts) != 2:
-            await message.channel.send("Por favor, forneça o nome do usuário. Exemplo: !dump NomeDoUsuario")
-            return
-        
-        command, user_name = parts
-        
-        if command == '!dump':
-            response = await dump_user_data(user_name)
-        else:  # !lgpd
-            if message.author.name.lower() != "voiddragon":
-                await message.channel.send("Apenas o usuário 'voiddragon' pode executar o comando !lgpd.")
+    if message.content.startswith('!'):
+        await bot.process_commands(message)
+        if message.content.startswith('!dump') or message.content.startswith('!lgpd'):
+            parts = message.content.split(maxsplit=1)
+            if len(parts) != 2:
+                await message.channel.send("Por favor, forneça o nome do usuário. Exemplo: !dump NomeDoUsuario")
                 return
-            response = await delete_user_data(user_name)
-        
-        await split_and_send_messages(message, response, 1900)
-        return
-
-    await process_message(message)
+            
+            command, user_name = parts
+            
+            if command == '!dump':
+                response = await dump_user_data(user_name)
+            else:  # !lgpd
+                if message.author.name.lower() != "voiddragon":
+                    await message.channel.send("Apenas o usuário 'voiddragon' pode executar o comando !lgpd.")
+                    return
+                response = await delete_user_data(user_name)
+            
+            await split_and_send_messages(message, response, 1900)
+    else:
+        await process_message(message)
 
 if __name__ == "__main__":
     try:
         bot.run(DISCORD_BOT_TOKEN)
+    except KeyboardInterrupt:
+        print("Bot encerrado manualmente.")
+    except Exception as e:
+        print(f"Erro ao executar o bot: {e}")
     finally:
         save_data()
+        close_connection()
+        sys.exit()
