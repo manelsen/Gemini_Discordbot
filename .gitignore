@@ -1,3 +1,6 @@
 __pycache__/
 myenv/
 .env
+*.md
+*.db
+bot_log.log
