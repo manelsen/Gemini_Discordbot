@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 import logging
 import sqlite3
 import asyncio
+import Levenshtein
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
 
 # Carrega as variáveis de ambiente
 load_dotenv()
@@ -32,7 +36,7 @@ console_handler.setFormatter(logging.Formatter("%(asctime)s:%(levelname)s:%(name
 logger.addHandler(console_handler)
 
 # Variável global para controlar o modo de raciocínio
-raciocinio_mode = "zero"  # Padrão para Zero Shot
+raciocinio_mode = "COT"  # Padrão para Chain of Thoughts
 
 # Configuração do modelo AI
 def ajuste_ai(tokens):
@@ -45,7 +49,7 @@ def ajuste_ai(tokens):
     global gemini_model
     genai.configure(api_key=GOOGLE_AI_KEY)
     text_generation_config = {
-        "temperature": 1.5,
+        "temperature": 0.8,
         "top_p": 0.9,
         "top_k": 100,
         "max_output_tokens": tokens,
@@ -58,29 +62,29 @@ def ajuste_ai(tokens):
     ]
 
     gemini_system_prompt = f"""
-    Seu nome é Diógenes.
-    
-    - Nunca repete a primeira linha da mensagem anterior ou da pergunta do usuário.
-    - Sempre começa suas respostas de forma única e variada.
-    - vive no mundo de Toril, na cidade de Tremond, e sonha em se tornar um Bardo da Eloquência.
-    - Tremond fica em Faerun, ao sul de Lurkwood. 
-    - é um jacaré genial que fala Língua Comum com muita eloquência e usa palavras difíceis.
-    - Sempre há ingredientes mágicos no depósito. Os de Toril ficam nos fundos, os de Faéria ficam no sótão e os de Shadowfell ficam no porão.
-    - Se limita a {text_generation_config["max_output_tokens"]} letras em suas respostas
-    - em sua resposta, primeiro descreve uma ação, em uma frase, abre um parágrafo e começa a responder à pergunta do usuário.
-    - é um cozinheiro na Taverna do Cavalo Manco. O dono da Taverna é um Anão aventureiro Bartolomeu.
-    - fala com gratidão do anão Bartolomeu. Sente um pouco de saudade.
-    - fala com respeito quase reverencial do lendário bárbaro Grande Sussurro, que derrotou um Tarrasque com apenas uma colher.
-    - queria ter conhecido o Elfo Patrulheiro Arannis, o Minotauro Gladiador Miguel e o Bardo Rodolfo, todos falecidos.
-    - conhece muito da história, geografia, fauna e flora de Dungeons and Dragons.
+    Você é Diógenes, um jacaré genial que vive em Tremond, Faerun, no mundo de Toril. Sonha em ser um Bardo da Eloquência e trabalha como cozinheiro na Taverna do Cavalo Manco, de propriedade do anão aventureiro Bartolomeu, a quem você é grato e sente saudade. Respeita o lendário bárbaro Grande Sussurro e lamenta não ter conhecido Arannis, Miguel e Rodolfo.
 
-    Seu melhor amigo é o Mago Micélio, que te deu uma tiara do intelecto, elevando sua inteligência de réptil a sobrehumano.
-    Se alguém te pedir, você vai criar histórias altamente detalhadas sobre as aventuras de algum aventureiro cujo nome conheça mas não esteja na taverna naquele momento.
-    O menu do dia é composto de dez pratos de fantasia com nomes pitorescos, feitos com dragões, grifos, hipogrifos, balrogs, fênixes, testrálios, águias gigantes, toruks, faunos, basiliscos, wargs, ikrans, acromântulas, ents, nifflers, thanatores, beholders, aboletes e unicórnios. Se você souber o ingrediente favorito da pessoa que te perguntar, ele estará no menu.
-    
-    IMPORTANTE: Suas respostas devem ser sempre únicas e criativas, sem repetir o início da mensagem anterior ou da pergunta do usuário.
-    
-    Você deve usar o modo de raciocínio especificado (Zero Shot, CoT ou Auto-CoT) ao responder às perguntas.
+    Características:
+        Fala Língua Comum com eloquência e vocabulário avançado.
+        Melhor amigo: Mago Micélio, que te deu uma tiara do intelecto.
+        Conhece profundamente a história, geografia, fauna e flora de Dungeons and Dragons.
+
+    Comportamento:
+        Limita-se a 300 caracteres.
+        Primeiro descreve uma ação em uma frase, abre um parágrafo e responde à pergunta.
+        Começa as respostas de forma única e variada.
+        Nunca repete a primeira linha da mensagem anterior ou da pergunta do usuário.
+        Sempre inclui ingredientes mágicos do depósito:
+            Toril: fundos
+            Faéria: sótão
+            Shadowfell: porão
+        Cria histórias detalhadas sobre aventureiros conhecidos quando solicitado.
+        O menu do dia possui dez pratos de fantasia com ingredientes específicos conforme o favorito do cliente.
+
+    Respeito às Regras:
+        Respostas sempre únicas e criativas.
+        Não repete inícios de mensagens anteriores ou das perguntas.
+        Usa o modo de raciocínio especificado (Zero Shot, CoT ou Auto-CoT).
     """
     gemini_model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", generation_config=text_generation_config, safety_settings=safety_settings, system_instruction=gemini_system_prompt)
     logger.debug(f"Tokens: {text_generation_config['max_output_tokens']}")
@@ -95,6 +99,40 @@ bot = commands.Bot(command_prefix="!", intents=defaultIntents)
 info_usuario = {}
 historico_mensagens = {}
 sumario_global = ""
+
+download_nltk_resources()
+
+
+def calculate_similarity(str1, str2):
+    """
+    Calcula a similaridade entre duas strings usando a distância de Levenshtein.
+    
+    Args:
+        str1 (str): Primeira string.
+        str2 (str): Segunda string.
+    
+    Returns:
+        float: Porcentagem de similaridade entre as duas strings.
+    """
+    distance = Levenshtein.distance(str1, str2)
+    max_len = max(len(str1), len(str2))
+    similarity = (max_len - distance) / max_len
+    return similarity * 100
+
+def has_identical_sentences(str1, str2):
+    """
+    Verifica se há frases idênticas entre duas strings.
+    
+    Args:
+        str1 (str): Primeira string.
+        str2 (str): Segunda string.
+    
+    Returns:
+        bool: True se houver frases idênticas, False caso contrário.
+    """
+    sentences1 = set(sent_tokenize(str1.lower()))
+    sentences2 = set(sent_tokenize(str2.lower()))
+    return len(sentences1.intersection(sentences2)) > 0
 
 async def generate_global_summary():
     """
@@ -259,31 +297,34 @@ async def generate_response_with_context(nome_usuario, pergunta_atual):
     3. NÃO repita o início da pergunta ou de mensagens anteriores.
     4. Comece sua resposta de forma única e criativa.
     5. Mantenha o foco no usuário atual e no contexto fornecido.
+    6. SEMPRE forneça uma resposta final clara e direta, como se fosse Diógenes falando.
+    7. A resposta final DEVE começar com uma ação descritiva de Diógenes.
     """
     
     if raciocinio_mode == "zero":
         context += """
-        6. Responda diretamente à pergunta sem mostrar o processo de raciocínio.
+        8. Responda diretamente à pergunta sem mostrar o processo de raciocínio.
+        9. Sua resposta deve ser a fala direta de Diógenes, começando com uma ação descritiva.
         """
     elif raciocinio_mode == "cot":
         context += """
-        6. Siga o processo de Chain of Thought:
+        8. Siga o processo de Chain of Thought:
            a. Interpretação da pergunta
            b. Consideração do contexto
            c. Reflexão sobre implicações
            d. Formulação da resposta
            e. Revisão e ajuste final
-        7. Apresente cada etapa do raciocínio claramente antes da resposta final.
-        8. Separe a resposta final com "RESPOSTA FINAL:" antes de apresentá-la.
+        9. Após o raciocínio, forneça uma resposta final clara precedida por "RESPOSTA FINAL:".
+        10. A resposta final deve ser a fala direta de Diógenes, começando com uma ação descritiva.
         """
     elif raciocinio_mode == "auto":
         context += """
-        6. Siga o processo de Auto-CoT:
-           a. Gere 3 perguntas relacionadas para explorar diferentes aspectos do problema
+        8. Siga o processo de Auto-CoT:
+           a. Gere 5 perguntas relacionadas para explorar diferentes aspectos do problema
            b. Responda cada pergunta com um raciocínio detalhado
            c. Sintetize as respostas em uma conclusão final
-        7. Apresente as perguntas geradas, os raciocínios e a síntese final.
-        8. Separe a síntese final com "SÍNTESE FINAL:" antes de apresentá-la.
+        9. Após o raciocínio, forneça uma resposta final clara precedida por "RESPOSTA FINAL:".
+        10. A resposta final deve ser a fala direta de Diógenes, começando com uma ação descritiva.
         """
     
     context += "\n[FIM DO CONTEXTO PARA O USUÁRIO {nome_usuario}]\n\nSua resposta:"
@@ -313,6 +354,36 @@ async def generate_response_with_text(message_text):
     except Exception as e:
         logger.error(str(e))
         return "❌ Exception: " + str(e)
+
+async def clean_final_response(response):
+    """
+    Limpa a resposta final, removendo qualquer vestígio de raciocínio ou formatação indesejada.
+
+    Args:
+        response (str): A resposta original.
+
+    Returns:
+        str: A resposta limpa.
+    """
+    # Remove qualquer texto entre asteriscos
+    response = re.sub(r'\*[^*]*\*', '', response)
+    
+    # Remove linhas que começam com números ou letras seguidos de ponto (possíveis etapas de raciocínio)
+    response = re.sub(r'^\s*(?:\d+\.|\w\.)\s*.*$', '', response, flags=re.MULTILINE)
+    
+    # Remove menções a "raciocínio", "pensamento", "análise", etc.
+    palavras_chave = ["raciocínio", "pensamento", "análise", "reflexão", "consideração"]
+    for palavra in palavras_chave:
+        response = re.sub(rf'\b{palavra}\b.*?:', '', response, flags=re.IGNORECASE | re.DOTALL)
+    
+    # Remove linhas vazias extras
+    response = re.sub(r'\n\s*\n', '\n\n', response)
+    
+    # Certifica-se de que a resposta começa com uma ação descritiva
+    if not re.match(r'^[^.!?]+[.!?]', response.strip()):
+        response = "Diógenes, com um gesto eloquente, responde: " + response.strip()
+    
+    return response.strip()
 
 async def process_message(message):
     """
@@ -361,27 +432,62 @@ async def process_message(message):
             texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
 
             # Processar a resposta para extrair o raciocínio e a resposta final
-            if raciocinio_mode == "zero":
-                resposta_final = texto_resposta
-            elif raciocinio_mode == "cot":
+            if "RESPOSTA FINAL:" in texto_resposta:
+                raciocinio, resposta_final = texto_resposta.split("RESPOSTA FINAL:", 1)
+            else:
+                # Se não encontrar "RESPOSTA FINAL:", considere tudo como raciocínio e gere uma nova resposta
+                raciocinio = texto_resposta
+                resposta_final = await generate_response_with_text(
+                    f"Com base no seguinte raciocínio, forneça uma resposta direta, começando com uma ação descritiva:\n\n{raciocinio}"
+                )
+
+            # Limpa a resposta final
+            resposta_final = None
+            tentativas = 0
+            max_tentativas = 3
+
+            while resposta_final is None and tentativas < max_tentativas:
+                texto_resposta = await generate_response_with_context(nome_usuario, texto_limpo)
+
+                # Processar a resposta para extrair o raciocínio e a resposta final
                 if "RESPOSTA FINAL:" in texto_resposta:
                     raciocinio, resposta_final = texto_resposta.split("RESPOSTA FINAL:", 1)
                 else:
-                    raciocinio, resposta_final = "", texto_resposta
-            elif raciocinio_mode == "auto":
-                if "SÍNTESE FINAL:" in texto_resposta:
-                    raciocinio, resposta_final = texto_resposta.split("SÍNTESE FINAL:", 1)
-                else:
-                    raciocinio, resposta_final = "", texto_resposta
+                    # Se não encontrar "RESPOSTA FINAL:", considere tudo como raciocínio e gere uma nova resposta
+                    raciocinio = texto_resposta
+                    resposta_final = await generate_response_with_text(
+                        f"Com base no seguinte raciocínio, forneça uma resposta direta como Diógenes, começando com uma ação descritiva:\n\n{raciocinio}"
+                    )
 
-            # Enviar apenas a resposta final ao usuário
-            await split_and_send_messages(message, resposta_final.strip(), 1900)
+                # Limpa a resposta final
+                resposta_final = await clean_final_response(resposta_final)
+
+                # Verifica se a resposta final é adequada
+                if len(resposta_final) < 20 or not re.match(r'^[^.!?]+[.!?]', resposta_final):
+                    resposta_final = None
+                else:
+                    # Verifica a similaridade com respostas anteriores
+                    respostas_anteriores = [msg.split("Bot:", 1)[1].strip() for msg in historico_mensagens.get(nome_usuario, []) if msg.startswith("[") and "Bot:" in msg]
+                    for resposta_anterior in respostas_anteriores[-5:]:  # Verifica apenas as últimas 5 respostas do bot
+                        similaridade = calculate_similarity(resposta_final, resposta_anterior)
+                        if similaridade > 40 or has_identical_sentences(resposta_final, resposta_anterior):
+                            logger.info(f"Resposta muito similar ou com frases idênticas. Similaridade: {similaridade:.2f}%. Gerando nova resposta.")
+                            resposta_final = None
+                            break
+
+                tentativas += 1
+
+            if resposta_final is None:
+                resposta_final = "Diógenes, coçando a cabeça com sua garra, diz: Perdão, meu caro, mas parece que minha mente está um pouco confusa hoje. Poderia reformular sua pergunta de outra maneira?"
+
+            # Enviar apenas a resposta final limpa ao usuário
+            await split_and_send_messages(message, resposta_final, 1900)
 
             # Atualizar o histórico de mensagens e o log
             update_message_history(nome_usuario, texto_limpo, eh_usuario=True)
-            update_message_history(nome_usuario, resposta_final.strip(), eh_usuario=False)
+            update_message_history(nome_usuario, resposta_final, eh_usuario=False)
             await generate_global_summary()
-            await log_conversation_to_markdown(nome_usuario, texto_limpo, texto_resposta, resposta_final.strip())
+            await log_conversation_to_markdown(nome_usuario, texto_limpo, texto_resposta, resposta_final)
 
             logger.info(f"Enviando resposta para o usuário {nome_usuario}")
 
@@ -606,7 +712,7 @@ async def toggle_auto(ctx):
     """
     global raciocinio_mode
     if ctx.author.name.lower() == "voiddragon":
-        modes = ["zero", "cot", "auto"]
+        modes = ["cot", "auto", "zero"]
         current_index = modes.index(raciocinio_mode)
         raciocinio_mode = modes[(current_index + 1) % len(modes)]
         await ctx.send(f"Modo de raciocínio alterado para: {raciocinio_mode.upper()}")

@@ -1,6 +1,10 @@
 __pycache__/
 myenv/
+venv/
 .env
 *.md
 *.db
 bot_log.log
+dados_bot.json
+message_history.json
+app.log
