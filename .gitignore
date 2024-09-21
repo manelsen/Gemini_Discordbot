@@ -8,3 +8,4 @@ bot_log.log
 dados_bot.json
 message_history.json
 app.log
+diogenes_bot/data/database.sqlite

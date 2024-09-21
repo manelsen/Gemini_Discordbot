@@ -1,0 +1,46 @@
+.
+├── ai
+│   ├── gemini_wrapper.py
+│   ├── nlp_tools.py
+│   └── __pycache__
+├── bot_log.log
+├── bot_module
+│   ├── bot.py
+│   ├── commands.py
+│   ├── events.py
+│   ├── __init__.py
+│   └── __pycache__
+├── config.py
+├── conversation_log_voiddragon.md
+├── core
+│   ├── context_generator.py
+│   ├── message_processor.py
+│   ├── __pycache__
+│   └── response_generator.py
+├── data
+│   └── database.sqlite
+├── hot_reload.py
+├── main.py
+├── models
+│   ├── conversation.py
+│   ├── __pycache__
+│   └── user.py
+├── pantano
+│   ├── bin
+│   ├── include
+│   ├── lib
+│   ├── lib64 -> lib
+│   ├── pyvenv.cfg
+│   └── share
+├── __pycache__
+│   ├── config.cpython-310.pyc
+│   └── hot_reload.cpython-310.pyc
+├── tests
+├── tree.txt
+└── utils
+    ├── data_management.py
+    ├── logging_config.py
+    ├── __pycache__
+    └── text_processing.py
+
+19 directories, 24 files
